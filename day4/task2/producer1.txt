@@ -1,0 +1,8 @@
+Hello from Producer 1 - Message A
+Hello from Producer 1 - Message B
+Hello from Producer 1 - Message C
+Hello from Producer 1 - Message D
+Producer1 thinks the weather is nice today
+Producer1: System V IPC is powerful
+Producer1: Shared memory for fast data exchange
+Producer1: Semaphores ensure mutual exclusion

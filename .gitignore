@@ -1,0 +1,42 @@
+# Compiled binaries
+*.o
+*.out
+mini_web_server
+*.exe
+
+# Build artifacts
+*.a
+*.so
+*.dylib
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled binaries (no extension)
+day1/task1/list
+day1/task2/fmt
+day2/user_manager
+day3/address_book
+day5/task2/philosophers_deadlock
+day5/task2/philosophers_trylock
+day6/task1/client
+day6/task1/server
+day7/task1/client
+day7/task1/server
+
+# Logs and temp output
+mini_webserver/logs/server.log
+mini_webserver/day01_output.txt
+mini_webserver/docs/debug-log.txt
+
+# Claude
+.claude/settings.local.json
+.claude/
+
+# System
+.DS_Store
+Thumbs.db

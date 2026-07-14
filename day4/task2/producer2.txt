@@ -1,0 +1,8 @@
+Greetings from Producer 2 - Data X
+Greetings from Producer 2 - Data Y
+Greetings from Producer 2 - Data Z
+Producer2 enjoys concurrent programming
+Producer2: Fork creates new processes
+Producer2: waitpid waits for child termination
+Producer2: exec replaces process image
+Producer2: Buffer pool has 5 slots
