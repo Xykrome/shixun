@@ -1,18 +1,3 @@
-/**
- * thread_pool.c — V0.8 线程池实现
- *
- * 实现固定大小的线程池，用于并发处理 TCP 客户端连接。
- *
- * 与 V0.5 多线程版本的对比：
- *   V0.5: 主线程扫描 request/ 目录，将文件路径入队，worker 处理文件 → 写入文件
- *   V0.8: 主线程 accept() 客户端连接，将 client_fd 入队，worker 处理 HTTP 请求/响应
- *
- * 同步设计（与 V0.5 一致的生产者-消费者模式）：
- *   - 主线程（生产者）：accept 连接 → 将 client_fd 放入队列 → signal 条件变量
- *   - Worker 线程（消费者）：等待条件变量 → 取 client_fd → 处理 HTTP 请求 → close
- *   - shutdown 标志 + 条件变量广播用于优雅关闭
- */
-
 #include "thread_pool.h"
 #include "request_handler.h"
 #include "log.h"
@@ -282,13 +267,11 @@ int thread_pool_add_task(int client_fd)
     pthread_mutex_lock(&queue.mutex);
 
     if (queue.shutdown) {
-        /* 线程池正在关闭，不再接受新任务 */
         pthread_mutex_unlock(&queue.mutex);
         return -1;
     }
 
     if (queue.count >= TASK_QUEUE_SIZE) {
-        /* 队列满（V0.8 中的 64 个槽位） */
         pthread_mutex_unlock(&queue.mutex);
         return -1;
     }
@@ -305,16 +288,11 @@ int thread_pool_add_task(int client_fd)
     return 0;
 }
 
-/**
- * thread_pool_destroy — 关闭并销毁线程池
- *
- * 1. 设置 shutdown 标志
- * 2. 广播条件变量唤醒所有 worker
- * 3. pthread_join 等待所有 worker 退出
- * 4. 清理资源
- */
 int thread_pool_destroy(void)
 {
+
+
+    
     int i;
     char log_msg[512];
 

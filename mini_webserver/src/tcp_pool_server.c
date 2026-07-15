@@ -1,24 +1,3 @@
-/*
- * V0.8 tcp_pool_server.c — 线程池 TCP 网络服务器
- *
- * 对照 W2D3 线程池并发服务器架构：
- *
- *   listen_fd -> accept() -> client_fd -> task queue -> worker -> handler -> close(client_fd)
- *
- * 完整流程（对照指导书第5页）：
- *   ① listen_fd：主线程创建监听套接字，绑定 IP 和端口
- *   ② accept()：主线程接收客户端连接，返回 client_fd
- *   ③ task queue：主线程将 client_fd 放入任务队列
- *   ④ worker：线程池中的 worker 线程从队列取出 client_fd
- *   ⑤ handler：worker 调用 handle_request_string 处理 HTTP 请求
- *   ⑥ close(client_fd)：worker 关闭客户端连接
- *
- * V0.8 与之前版本的对比：
- *   V0.6: 单连接，accept 一次处理一次就退出
- *   V0.7: 多进程，fork 子进程处理，SIGCHLD + waitpid 回收
- *   V0.8: 线程池，固定数量 worker 线程复用，mutex + cond 同步
- */
-
 #include "tcp_pool_server.h"
 #include "thread_pool.h"
 #include "request_handler.h"
@@ -48,12 +27,7 @@ int tcp_pool_server_run(const server_config_t *config, int num_workers)
     if (num_workers < 1)
         num_workers = 4;  /* 默认 4 个 worker */
 
-    /* ===== 忽略 SIGPIPE =====
-     *
-     * 向已关闭的连接写数据时触发 SIGPIPE，默认行为是终止进程。
-     * 设为 SIG_IGN 忽略此信号，send/write 将返回 -1 并设 errno = EPIPE。
-     * （V0.7 也需要这个，V0.8 同样需要）
-     */
+    /* ===== 忽略 SIGPIPE =====*/
     if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
         log_error("[V0.8] signal(SIGPIPE) failed");
         perror("signal(SIGPIPE)");
@@ -128,18 +102,7 @@ int tcp_pool_server_run(const server_config_t *config, int num_workers)
         return -1;
     }
 
-    /* ===== 步骤 5: 主循环 — accept() → 入队 =====
-     *
-     * 这是 W2D3 线程池并发服务器的核心架构：
-     *   1. accept() 阻塞等待客户端连接
-     *   2. 将 client_fd 放入任务队列（生产者角色）
-     *   3. 条件变量唤醒一个阻塞的 worker（消费者角色）
-     *   4. worker 处理完毕后关闭 client_fd
-     *
-     * 与 V0.7 的关键区别：
-     *   V0.7: accept → fork → 子进程处理 → 父进程 close(conn_fd) → 继续 accept
-     *   V0.8: accept → 入队（主线程不 close） → worker 处理并 close → 继续 accept
-     */
+    /* ===== 步骤 5: 主循环 — accept() → 入队 =====*/
     while (1) {
         client_addr_len = sizeof(client_addr);
         int conn_fd = accept(listen_fd,
@@ -188,10 +151,6 @@ int tcp_pool_server_run(const server_config_t *config, int num_workers)
             close(conn_fd);  /* 队列满时主线程关闭该连接 */
         }
 
-        /*
-         * 达到 max_clients 上限后停止 accept() 循环。
-         * 注意：已入队的任务可能还在处理中，worker 会继续完成它们。
-         */
         if (client_count >= MAX_CLIENTS) {
             printf("[V0.8] Reached max_clients (%d), stopping accept loop\n",
                    MAX_CLIENTS);
@@ -207,15 +166,7 @@ int tcp_pool_server_run(const server_config_t *config, int num_workers)
     close(listen_fd);
     log_info("[V0.8] listen_fd closed");
 
-    /*
      * ===== 步骤 7: 关闭线程池 =====
-     *
-     * 设置 shutdown 标志 → 广播条件变量唤醒所有 worker →
-     * pthread_join 等待所有 worker 退出 → 清理 mutex/cond。
-     *
-     * 对照指导书第46页功能要求：
-     *   "关闭线程池，唤醒 worker，等待所有线程退出"
-     */
     thread_pool_destroy();
 
     printf("[V0.8] Thread-pool server exiting normally\n");
