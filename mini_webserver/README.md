@@ -11,6 +11,7 @@ Linux 环境下基于 C 语言的 HTTP 服务器，支持五种并发模型。
 | V0.6 | TCP 单连接 | `./mini_web_server --tcp conf/server.conf` |
 | V0.7 | TCP 多进程 | `./mini_web_server --fork conf/server.conf` |
 | V0.8 | TCP 线程池 | `./mini_web_server --pool conf/server.conf [N]` |
+| V1.0 | Epoll 事件驱动 | `./mini_web_server serve-epoll <max_requests>` |
 
 ## 目录结构
 
@@ -25,6 +26,7 @@ mini_webserver/
 ├── src/                      # 源文件
 │   ├── thread_pool.c         # V0.8 线程池实现
 │   ├── tcp_pool_server.c     # V0.8 TCP 线程池服务器
+│   ├── epoll_server.c         # V1.0 epoll HTTP 服务器
 │   ├── main.c                # 主入口
 │   └── ...
 ├── tests/                    # 测试脚本
@@ -71,4 +73,16 @@ listen_fd → accept() → client_fd → task queue → worker → handler → c
 | Day05 | `make test5` | 多线程请求处理 |
 | Day07 | `make test7` | 多进程 TCP 服务器 |
 | Day08 | `make test8` | 线程池 TCP 服务器 |
+| Day10 | `make test9` | epoll Webserver V1.0 |
 | 全部 | `make test-all` | 运行所有测试 |
+
+## V1.0 架构
+
+```
+listen_fd → epoll_create1() → epoll_wait() → accept/recv → HTTP handler → send → epoll_ctl(DEL) + close
+```
+
+- 纯 epoll + 单线程事件循环（LT 模式 + EPOLLIN）
+- 未使用 select、多线程、多进程、线程池
+- 支持 /hello、/users/<name> 路由，未知路径返回 404
+- 请求计数达到 max_requests 后正常退出

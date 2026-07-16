@@ -1,0 +1,87 @@
+wamdus@LAPTOP-UI97TQP1:~/shixun/select_chat$ make clean
+rm -f src/main.o src/select_server.o src/chat_client.o select_server chat_client
+wamdus@LAPTOP-UI97TQP1:~/shixun/select_chat$ make
+gcc -Wall -Iinclude -c src/main.c -o src/main.o
+gcc -Wall -Iinclude -c src/select_server.c -o src/select_server.o
+gcc -Wall -Iinclude -o select_server src/main.o src/select_server.o 
+gcc -Wall -Iinclude -c src/chat_client.c -o src/chat_client.o
+gcc -Wall -Iinclude -o chat_client src/chat_client.o 
+wamdus@LAPTOP-UI97TQP1:~/shixun/select_chat$ ./select_server 8888
+=== W2D4 Select Chat Server ===
+[SERVER] socket() created, fd=3
+[SERVER] bind() to 0.0.0.0:8888
+[SERVER] listen() on port 8888, waiting for connections...
+[SERVER] Max clients: 64
+
+[SERVER] Chat server is running. Press Ctrl+C to stop.
+
+[SERVER] Connection #1 from 127.0.0.1:34624 (fd=4)
+[SERVER] Connection #2 from 127.0.0.1:47232 (fd=5)
+[SERVER] Connection #3 from 127.0.0.1:47240 (fd=6)
+[SERVER] recv() 12 bytes from 127.0.0.1:34624 (fd=4)
+[MSG from 127.0.0.1:34624] hello world
+[SERVER] recv() 15 bytes from 127.0.0.1:34624 (fd=4)
+[MSG from 127.0.0.1:34624] this is a test
+[SERVER] recv() 13 bytes from 127.0.0.1:34624 (fd=4)
+[MSG from 127.0.0.1:34624] 你好世界
+[SERVER] recv() returned 0 on fd=5 — client closed connection
+[SERVER] Client 127.0.0.1:47232 disconnected (fd=5) — client closed (recv==0)
+[SERVER] Active connections: 2
+[SERVER] Connection #3 from 127.0.0.1:44232 (fd=5)
+[SERVER] recv() 15 bytes from 127.0.0.1:44232 (fd=5)
+[MSG from 127.0.0.1:44232] msg1
+[MSG from 127.0.0.1:44232] msg2
+[MSG from 127.0.0.1:44232] msg3
+[SERVER] recv() 5 bytes from 127.0.0.1:34624 (fd=4)
+[SERVER] Client 127.0.0.1:34624 sent quit
+[SERVER] Client 127.0.0.1:34624 disconnected (fd=4) — quit command
+[SERVER] Active connections: 2
+[SERVER] recv() 21 bytes from 127.0.0.1:47240 (fd=6)
+[MSG from 127.0.0.1:47240] are you still there?
+[SERVER] recv() 5 bytes from 127.0.0.1:47240 (fd=6)
+[SERVER] Client 127.0.0.1:47240 sent quit
+[SERVER] Client 127.0.0.1:47240 disconnected (fd=6) — quit command
+[SERVER] Active connections: 1
+
+wamdus@LAPTOP-UI97TQP1:~/shixun/select_chat$ ./chat_client 127.0.0.1 8888
+[CLIENT] Connected to 127.0.0.1:8888
+[CLIENT] Type messages and press Enter to send.
+[CLIENT] Type 'quit' and press Enter to exit.
+
+hello world
+[CLIENT] Sent 12 bytes
+[SERVER→] [SERVER] received: hello world
+this is a test
+[CLIENT] Sent 15 bytes
+[SERVER→] [SERVER] received: this is a test
+你好世界
+[CLIENT] Sent 13 bytes
+[SERVER→] [SERVER] received: 你好世界
+quit
+[CLIENT] Sent 5 bytes
+[CLIENT] Sent quit, waiting for server to close...
+[CLIENT] Server closed the connection.
+[CLIENT] Disconnected. Goodbye.
+wamdus@LAPTOP-UI97TQP1:~/shixun/select_chat$ 
+
+wamdus@LAPTOP-UI97TQP1:~/shixun/select_chat$ ./chat_client 127.0.0.1 8888
+[CLIENT] Connected to 127.0.0.1:8888
+[CLIENT] Type messages and press Enter to send.
+[CLIENT] Type 'quit' and press Enter to exit.
+
+printf "msg1\nmsg2\nmsg3\n" | nc 127.0.0.1 ^C  
+wamdus@LAPTOP-UI97TQP1:~/shixun/select_chat$ printf "msg1\nmsg2\nmsg3\n" | nc 127.0.0.1 8888
+[SERVER] received: msg1
+[SERVER] received: msg2
+[SERVER] received: msg3
+
+wamdus@LAPTOP-UI97TQP1:~/shixun/select_chat$ ./chat_client 127.0.0.1 8888
+[CLIENT] Connected to 127.0.0.1:8888
+[CLIENT] Type messages and press Enter to send.
+[CLIENT] Type 'quit' and press Enter to exit.
+
+printf "msg1\nmsg2\nmsg3\n" | nc 127.0.0.1 ^C  
+wamdus@LAPTOP-UI97TQP1:~/shixun/select_chat$ printf "msg1\nmsg2\nmsg3\n" | nc 127.0.0.1 8888
+[SERVER] received: msg1
+[SERVER] received: msg2
+[SERVER] received: msg3

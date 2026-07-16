@@ -32,6 +32,10 @@ day7/task1/server
 select_chat/select_server
 select_chat/chat_client
 
+# epoll_chat binaries (W2D5)
+epoll_chat/epoll_server
+epoll_chat/chat_client
+
 # Logs and temp output
 mini_webserver/logs/server.log
 mini_webserver/day01_output.txt

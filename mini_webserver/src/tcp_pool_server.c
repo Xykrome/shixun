@@ -166,7 +166,7 @@ int tcp_pool_server_run(const server_config_t *config, int num_workers)
     close(listen_fd);
     log_info("[V0.8] listen_fd closed");
 
-     * ===== 步骤 7: 关闭线程池 =====
+    /* ===== 步骤 7: 关闭线程池 ===== */
     thread_pool_destroy();
 
     printf("[V0.8] Thread-pool server exiting normally\n");
