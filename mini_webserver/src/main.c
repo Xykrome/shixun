@@ -1,6 +1,7 @@
 #include "config.h"
 #include "epoll_server.h"
 #include "http_response.h"
+#include "http_server.h"
 #include "log.h"
 #include "process_server.h"
 #include "request_handler.h"
@@ -25,6 +26,7 @@ static void print_usage(const char *prog) {
     printf("    %s --pool <config_file>         - Start TCP server, thread pool (V0.8)\n", prog);
     printf("    %s --pool <config_file> <N>     - Start TCP server with N worker threads (V0.8)\n", prog);
     printf("    %s serve-epoll <max_requests>   - Start epoll HTTP server (V1.0, W2D5)\n", prog);
+    printf("    %s serve-http <max_requests>   - Start epoll HTTP server (V2.0, W3D1)\n", prog);
     printf("\n");
     printf("  User management:\n");
     printf("    %s list                         - List all users (linked list)\n", prog);
@@ -149,13 +151,49 @@ cleanup:
         }
 
         /* 日志初始化（可选，即使失败也继续运行） */
-        if (log_init("logs/server.log") != 0) {
+        if (log_init("logs/server.log", NULL) != 0) {
             fprintf(stderr, "Warning: failed to open log file, continuing without logging\n");
         }
 
         printf("Starting V1.0 epoll webserver (max %d requests)...\n", max_requests);
         if (epoll_server_run(8080, max_requests) < 0) {
             log_error("failed to start epoll server");
+            log_close();
+            return 1;
+        }
+
+        log_close();
+        return 0;
+    }
+
+    /*
+     * ===== Webserver V2.0 (W3D1): Epoll HTTP 服务器 =====
+     *
+     * 命令格式：./mini_web_server serve-http <max_requests>
+     *
+     * 支持完整 HTTP 请求解析、路由分发和日志系统：
+     *   GET /        → 200 OK + HTML 页面
+     *   GET /missing → 404 Not Found
+     *   POST /echo   → 200 OK + 回显请求体
+     *   系统日志 + 访问日志分别记录
+     *
+     * 纯 epoll + 单线程事件循环，不依赖 select/多线程/多进程。
+     */
+    if (argc >= 3 && strcmp(argv[1], "serve-http") == 0) {
+        int max_requests = atoi(argv[2]);
+        if (max_requests <= 0) {
+            fprintf(stderr, "Error: max_requests must be a positive integer\n");
+            return 1;
+        }
+
+        /* 日志初始化：系统日志 + 访问日志分别写入 */
+        if (log_init("logs/system.log", "logs/access.log") != 0) {
+            fprintf(stderr, "Warning: failed to open log files, continuing without logging\n");
+        }
+
+        printf("Starting V2.0 epoll HTTP server (max %d requests)...\n", max_requests);
+        if (http_server_run(8080, max_requests) < 0) {
+            log_error("failed to start http server");
             log_close();
             return 1;
         }
@@ -173,6 +211,7 @@ cleanup:
      *   V0.7 TCP多进程：  ./mini_web_server --fork conf/server.conf
      *   V0.8 TCP线程池：  ./mini_web_server --pool conf/server.conf [num_workers]
      *   V1.0 epoll模式：  ./mini_web_server serve-epoll <max_requests>
+     *   V2.0 http模式：   ./mini_web_server serve-http <max_requests> (W3D1)
      *
      * V0.4 (process): fork 子进程，每个处理一个请求，通过 waitpid 回收
      * V0.5 (thread):  pthread 创建 worker 线程，共享请求队列，通过 pthread_join 回收
@@ -180,6 +219,7 @@ cleanup:
      * V0.7 (fork):    socket/bind/listen/accept + fork，多进程并发 TCP 服务器
      * V0.8 (pool):    socket/bind/listen/accept + 线程池，固定 worker 处理连接
      * V1.0 (epoll):   socket/bind/listen + epoll_create1/epoll_ctl/epoll_wait 事件驱动
+     * V2.0 (http):    epoll + HTTP 解析 + 路由分发 + 日志系统 (W3D1)
      */
     {
         int use_threads = 0;
@@ -224,7 +264,7 @@ cleanup:
             return 1;
         }
 
-        if (log_init(config.log_path) != 0) {
+        if (log_init(config.log_path, NULL) != 0) {
             fprintf(stderr, "failed to open log file\n");
             return 1;
         }

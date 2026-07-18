@@ -27,6 +27,8 @@
 /*
  * 客户端连接信息
  */
+#ifndef CLIENT_INFO_T_DEFINED
+#define CLIENT_INFO_T_DEFINED
 typedef struct {
     int   fd;                          /* 客户端套接字，-1 = 空闲 */
     char  ip[64];                      /* 客户端 IP 地址          */
@@ -34,6 +36,7 @@ typedef struct {
     char  recv_buf[RECV_BUF_SIZE];     /* HTTP 请求接收缓冲区      */
     int   buf_len;                     /* 缓冲区已用长度           */
 } client_info_t;
+#endif
 
 /*
  * 启动 epoll HTTP 服务器 (Webserver V1.0)

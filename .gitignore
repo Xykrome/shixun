@@ -38,6 +38,8 @@ epoll_chat/chat_client
 
 # Logs and temp output
 mini_webserver/logs/server.log
+mini_webserver/logs/system.log
+mini_webserver/logs/access.log
 mini_webserver/day01_output.txt
 mini_webserver/docs/debug-log.txt
 

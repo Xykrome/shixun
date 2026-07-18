@@ -12,6 +12,7 @@ Linux 环境下基于 C 语言的 HTTP 服务器，支持五种并发模型。
 | V0.7 | TCP 多进程 | `./mini_web_server --fork conf/server.conf` |
 | V0.8 | TCP 线程池 | `./mini_web_server --pool conf/server.conf [N]` |
 | V1.0 | Epoll 事件驱动 | `./mini_web_server serve-epoll <max_requests>` |
+| V2.0 | Epoll HTTP 服务器 | `./mini_web_server serve-http <max_requests>` |
 
 ## 目录结构
 
@@ -27,6 +28,8 @@ mini_webserver/
 │   ├── thread_pool.c         # V0.8 线程池实现
 │   ├── tcp_pool_server.c     # V0.8 TCP 线程池服务器
 │   ├── epoll_server.c         # V1.0 epoll HTTP 服务器
+│   ├── http_parser.c           # W3D1 HTTP 请求解析器
+│   ├── http_server.c           # V2.0 epoll HTTP 服务器 (W3D1)
 │   ├── main.c                # 主入口
 │   └── ...
 ├── tests/                    # 测试脚本
@@ -74,6 +77,7 @@ listen_fd → accept() → client_fd → task queue → worker → handler → c
 | Day07 | `make test7` | 多进程 TCP 服务器 |
 | Day08 | `make test8` | 线程池 TCP 服务器 |
 | Day10 | `make test9` | epoll Webserver V1.0 |
+| Day11 | `make test10` | HTTP Server V2.0 (W3D1) |
 | 全部 | `make test-all` | 运行所有测试 |
 
 ## V1.0 架构
@@ -85,4 +89,19 @@ listen_fd → epoll_create1() → epoll_wait() → accept/recv → HTTP handler 
 - 纯 epoll + 单线程事件循环（LT 模式 + EPOLLIN）
 - 未使用 select、多线程、多进程、线程池
 - 支持 /hello、/users/<name> 路由，未知路径返回 404
+- 请求计数达到 max_requests 后正常退出
+
+## V2.0 架构 (W3D1)
+
+```
+epoll_wait → recv → 追加缓冲区 → 判断完整性(\r\n\r\n + Content-Length)
+→ HTTP 解析(请求行/头/体) → 路由分发 → send → 系统日志 + 访问日志
+→ epoll_ctl(DEL) + close
+```
+
+- 纯 epoll + 单线程事件循环（LT 模式 + EPOLLIN）
+- 缓冲区追加模式：一次 recv() ≠ 一个完整 HTTP 请求
+- 支持 GET /（200 + HTML）、GET /missing（404）、POST /echo（200 + 回显）
+- 系统日志 + 访问日志分离，支持 DEBUG/INFO/WARNING/ERROR 四级
+- 正确设置 Content-Type、Content-Length、Connection 响应头
 - 请求计数达到 max_requests 后正常退出
