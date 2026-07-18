@@ -1,5 +1,5 @@
 /*
- * W3D1 http_server.h — 基于 epoll 的 HTTP 服务器 V2.0 头文件
+ * W3D1 http_server.h — 基于 epoll 的 HTTP 服务器 V1.1 头文件
  *
  * 功能：
  *   结合 W2D5 的 epoll 事件循环和 W3D1 的 HTTP 协议知识，
@@ -38,7 +38,7 @@ typedef struct {
 #endif
 
 /*
- * 启动基于 epoll 的 HTTP 服务器 (W3D1 V2.0)
+ * 启动基于 epoll 的 HTTP 服务器 (W3D1 V1.1)
  *
  * 支持路由：
  *   GET /        → HTTP/1.1 200 OK + HTML 页面

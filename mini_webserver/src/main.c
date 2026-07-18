@@ -26,7 +26,7 @@ static void print_usage(const char *prog) {
     printf("    %s --pool <config_file>         - Start TCP server, thread pool (V0.8)\n", prog);
     printf("    %s --pool <config_file> <N>     - Start TCP server with N worker threads (V0.8)\n", prog);
     printf("    %s serve-epoll <max_requests>   - Start epoll HTTP server (V1.0, W2D5)\n", prog);
-    printf("    %s serve-http <max_requests>   - Start epoll HTTP server (V2.0, W3D1)\n", prog);
+    printf("    %s serve-http <max_requests>   - Start epoll HTTP server (V1.1, W3D1)\n", prog);
     printf("\n");
     printf("  User management:\n");
     printf("    %s list                         - List all users (linked list)\n", prog);
@@ -167,7 +167,7 @@ cleanup:
     }
 
     /*
-     * ===== Webserver V2.0 (W3D1): Epoll HTTP 服务器 =====
+     * ===== Webserver V1.1 (W3D1): Epoll HTTP 服务器 =====
      *
      * 命令格式：./mini_web_server serve-http <max_requests>
      *
@@ -191,7 +191,7 @@ cleanup:
             fprintf(stderr, "Warning: failed to open log files, continuing without logging\n");
         }
 
-        printf("Starting V2.0 epoll HTTP server (max %d requests)...\n", max_requests);
+        printf("Starting V1.1 epoll HTTP server (max %d requests)...\n", max_requests);
         if (http_server_run(8080, max_requests) < 0) {
             log_error("failed to start http server");
             log_close();
@@ -211,7 +211,7 @@ cleanup:
      *   V0.7 TCP多进程：  ./mini_web_server --fork conf/server.conf
      *   V0.8 TCP线程池：  ./mini_web_server --pool conf/server.conf [num_workers]
      *   V1.0 epoll模式：  ./mini_web_server serve-epoll <max_requests>
-     *   V2.0 http模式：   ./mini_web_server serve-http <max_requests> (W3D1)
+     *   V1.1 http模式：   ./mini_web_server serve-http <max_requests> (W3D1)
      *
      * V0.4 (process): fork 子进程，每个处理一个请求，通过 waitpid 回收
      * V0.5 (thread):  pthread 创建 worker 线程，共享请求队列，通过 pthread_join 回收
@@ -219,7 +219,7 @@ cleanup:
      * V0.7 (fork):    socket/bind/listen/accept + fork，多进程并发 TCP 服务器
      * V0.8 (pool):    socket/bind/listen/accept + 线程池，固定 worker 处理连接
      * V1.0 (epoll):   socket/bind/listen + epoll_create1/epoll_ctl/epoll_wait 事件驱动
-     * V2.0 (http):    epoll + HTTP 解析 + 路由分发 + 日志系统 (W3D1)
+     * V1.1 (http):    epoll + HTTP 解析 + 路由分发 + 日志系统 (W3D1)
      */
     {
         int use_threads = 0;

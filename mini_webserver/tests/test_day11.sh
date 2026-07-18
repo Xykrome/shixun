@@ -1,5 +1,5 @@
 #!/bin/bash
-# test_day11.sh - 验证 W3D1 HTTP Server V2.0 (epoll) 功能
+# test_day11.sh - 验证 W3D1 HTTP Server V1.1 (epoll) 功能
 #
 # 检查内容（对应 W3D1 验收标准）：
 #   1. 编译与启动 — 编译并执行 serve-http，无错误
@@ -24,7 +24,7 @@ PORT=8080
 MAX_REQ=8
 
 echo "=========================================="
-echo "Day11 测试：HTTP Server V2.0 (W3D1)"
+echo "Day11 测试：HTTP Server V1.1 (W3D1)"
 echo "=========================================="
 
 # 清理
@@ -44,7 +44,7 @@ fail() { echo "  FAIL: $1"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 # 测试 1: 编译验证
 # ======================================================
 echo ""
-echo "--- 测试 1: 编译 HTTP Server V2.0 ---"
+echo "--- 测试 1: 编译 HTTP Server V1.1 ---"
 make clean > /dev/null 2>&1
 if make > /dev/null 2>&1; then
     pass "编译成功（无错误）"
@@ -57,7 +57,7 @@ fi
 # 测试 2: 服务器启动验证
 # ======================================================
 echo ""
-echo "--- 测试 2: 启动 HTTP Server V2.0 ---"
+echo "--- 测试 2: 启动 HTTP Server V1.1 ---"
 cleanup_procs
 
 # 清除旧日志
@@ -68,9 +68,9 @@ SERVER_PID=$!
 sleep 1
 
 if kill -0 "$SERVER_PID" 2>/dev/null; then
-    pass "HTTP Server V2.0 启动成功（PID: $SERVER_PID）"
+    pass "HTTP Server V1.1 启动成功（PID: $SERVER_PID）"
 else
-    fail "HTTP Server V2.0 启动失败"
+    fail "HTTP Server V1.1 启动失败"
     exit 1
 fi
 
@@ -456,7 +456,7 @@ fi
 # ======================================================
 echo ""
 echo "=========================================="
-echo "Day11 HTTP Server V2.0 测试结果汇总"
+echo "Day11 HTTP Server V1.1 测试结果汇总"
 echo "=========================================="
 echo "  通过: $PASS_COUNT"
 echo "  失败: $FAIL_COUNT"
@@ -465,6 +465,6 @@ if [ "$FAIL_COUNT" -gt 0 ]; then
     echo "存在 $FAIL_COUNT 个失败项！"
     exit 1
 else
-    echo "Day11 HTTP Server V2.0 测试全部通过！"
+    echo "Day11 HTTP Server V1.1 测试全部通过！"
     echo "=========================================="
 fi

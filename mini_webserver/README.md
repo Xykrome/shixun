@@ -12,7 +12,7 @@ Linux 环境下基于 C 语言的 HTTP 服务器，支持五种并发模型。
 | V0.7 | TCP 多进程 | `./mini_web_server --fork conf/server.conf` |
 | V0.8 | TCP 线程池 | `./mini_web_server --pool conf/server.conf [N]` |
 | V1.0 | Epoll 事件驱动 | `./mini_web_server serve-epoll <max_requests>` |
-| V2.0 | Epoll HTTP 服务器 | `./mini_web_server serve-http <max_requests>` |
+| V1.1 | Epoll HTTP 服务器 | `./mini_web_server serve-http <max_requests>` |
 
 ## 目录结构
 
@@ -29,7 +29,7 @@ mini_webserver/
 │   ├── tcp_pool_server.c     # V0.8 TCP 线程池服务器
 │   ├── epoll_server.c         # V1.0 epoll HTTP 服务器
 │   ├── http_parser.c           # W3D1 HTTP 请求解析器
-│   ├── http_server.c           # V2.0 epoll HTTP 服务器 (W3D1)
+│   ├── http_server.c           # V1.1 epoll HTTP 服务器 (W3D1)
 │   ├── main.c                # 主入口
 │   └── ...
 ├── tests/                    # 测试脚本
@@ -77,7 +77,7 @@ listen_fd → accept() → client_fd → task queue → worker → handler → c
 | Day07 | `make test7` | 多进程 TCP 服务器 |
 | Day08 | `make test8` | 线程池 TCP 服务器 |
 | Day10 | `make test9` | epoll Webserver V1.0 |
-| Day11 | `make test10` | HTTP Server V2.0 (W3D1) |
+| Day11 | `make test10` | HTTP Server V1.1 (W3D1) |
 | 全部 | `make test-all` | 运行所有测试 |
 
 ## V1.0 架构
@@ -91,7 +91,7 @@ listen_fd → epoll_create1() → epoll_wait() → accept/recv → HTTP handler 
 - 支持 /hello、/users/<name> 路由，未知路径返回 404
 - 请求计数达到 max_requests 后正常退出
 
-## V2.0 架构 (W3D1)
+## V1.1 架构 (W3D1)
 
 ```
 epoll_wait → recv → 追加缓冲区 → 判断完整性(\r\n\r\n + Content-Length)

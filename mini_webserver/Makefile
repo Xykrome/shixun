@@ -55,7 +55,7 @@ test8: $(TARGET)
 test9: $(TARGET)
 	./tests/test_day10.sh
 
-# Day11 测试（W3D1 — HTTP Server V2.0）
+# Day11 测试（W3D1 — HTTP Server V1.1）
 test10: $(TARGET)
 	./tests/test_day11.sh
 

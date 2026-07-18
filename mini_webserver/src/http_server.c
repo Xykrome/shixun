@@ -1,5 +1,5 @@
 /*
- * W3D1 http_server.c — 基于 epoll 的 HTTP 服务器 V2.0
+ * W3D1 http_server.c — 基于 epoll 的 HTTP 服务器 V1.1
  *
  * 功能：
  *   结合 W2D5 的 epoll 事件循环 + W3D1 的 HTTP 协议知识：
@@ -172,10 +172,10 @@ static int generate_response(const http_request_t *req, char *response,
 
         body = "<!DOCTYPE html>\r\n"
                "<html>\r\n"
-               "<head><meta charset=\"utf-8\"><title>MiniWeb V2.0</title></head>\r\n"
+               "<head><meta charset=\"utf-8\"><title>MiniWeb V1.1</title></head>\r\n"
                "<body>\r\n"
                "<h1>Hello, HTTP!</h1>\r\n"
-               "<p>Welcome to MiniWeb V2.0 — Epoll HTTP Server (W3D1)</p>\r\n"
+               "<p>Welcome to MiniWeb V1.1 — Epoll HTTP Server (W3D1)</p>\r\n"
                "</body>\r\n"
                "</html>";
         body_len = (int)strlen(body);
@@ -291,7 +291,7 @@ static int generate_response(const http_request_t *req, char *response,
 
 /* ===== http_server_run() ==============================================
  *
- * 主函数：启动基于 epoll 的 HTTP 服务器 (W3D1 V2.0)
+ * 主函数：启动基于 epoll 的 HTTP 服务器 (W3D1 V1.1)
  *
  * 整体流程：
  *   socket → bind → listen → epoll_create1 →
@@ -330,11 +330,11 @@ int http_server_run(int port, int max_requests)
         clients[i].fd = -1;
     }
 
-    printf("=== W3D1 HTTP Server V2.0 (epoll) ===\n");
+    printf("=== W3D1 HTTP Server V1.1 (epoll) ===\n");
     printf("[SERVER] Max requests: %d\n", max_requests);
 
     /* 系统日志 */
-    log_info("HTTP Server V2.0 starting...");
+    log_info("HTTP Server V1.1 starting...");
 
     /* ===== socket() ===== */
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -409,7 +409,7 @@ int http_server_run(int port, int max_requests)
     printf("[SERVER] listen_fd (fd=%d) registered to epoll (epfd=%d)\n",
            listen_fd, epfd);
 
-    printf("\n[SERVER] HTTP Server V2.0 is running on http://127.0.0.1:%d/\n", port);
+    printf("\n[SERVER] HTTP Server V1.1 is running on http://127.0.0.1:%d/\n", port);
     printf("[SERVER] Process up to %d requests, then exit normally.\n\n", max_requests);
 
     /* ===== 主事件循环 ===== */
