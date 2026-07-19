@@ -471,10 +471,11 @@ int http_server_run(int port, int max_requests)
                                 }
                             }
 
-                        } else if (strcmp(req.method, "GET") != 0 &&
-                                   strcmp(req.method, "POST") != 0) {
+                        } else {
                             /*
-                             * ===== 不支持的方法 → 405 Method Not Allowed =====
+                             * ===== 其他方法/POST 非 /echo 路径 → 405 Method Not Allowed =====
+                             * 指导书要求：GET 进入静态资源处理，其他方法返回 405 和 Allow: GET
+                             * POST /echo 作为 V1.1 兼容特例在上面单独处理
                              */
                             const char *body = "<!DOCTYPE html>\r\n<html>\r\n"
                                                "<head><meta charset=\"utf-8\"><title>405</title></head>\r\n"
@@ -490,28 +491,6 @@ int http_server_run(int port, int max_requests)
                                      "Content-Length: %d\r\n"
                                      "Connection: close\r\n"
                                      "Allow: GET\r\n"
-                                     "\r\n"
-                                     "%s",
-                                     body_bytes, body);
-                            send(client_fd, resp, strlen(resp), 0);
-
-                        } else {
-                            /*
-                             * ===== POST 到非 /echo 路径 → 404 =====
-                             */
-                            const char *body = "<!DOCTYPE html>\r\n<html>\r\n"
-                                               "<head><meta charset=\"utf-8\"><title>404</title></head>\r\n"
-                                               "<body><h1>404 Not Found</h1></body>\r\n</html>";
-                            char resp[1024];
-
-                            status_code = 404;
-                            mime_type   = "text/html; charset=utf-8";
-                            body_bytes  = (int)strlen(body);
-                            snprintf(resp, sizeof(resp),
-                                     "HTTP/1.1 404 Not Found\r\n"
-                                     "Content-Type: text/html; charset=utf-8\r\n"
-                                     "Content-Length: %d\r\n"
-                                     "Connection: close\r\n"
                                      "\r\n"
                                      "%s",
                                      body_bytes, body);

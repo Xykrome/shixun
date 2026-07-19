@@ -22,7 +22,7 @@
 EXE="./mini_web_server"
 HOST="127.0.0.1"
 PORT=8080
-MAX_REQ=15
+MAX_REQ=17
 
 echo "=========================================="
 echo "Day12 测试：HTTP Static File Server V1.2"
@@ -209,6 +209,26 @@ else
 fi
 
 # ======================================================
+# 测试 7b: JPEG 图片（指导书要求 www/ 含 JPEG/GIF）
+# ======================================================
+echo ""
+echo "--- 测试 7b: JPEG 图片 MIME 类型 ---"
+
+RESP_JPG=$(curl -is --max-time 5 "http://${HOST}:${PORT}/img/logo.jpeg" 2>/dev/null)
+
+if echo "$RESP_JPG" | grep -q "200 OK"; then
+    pass "GET /img/logo.jpeg 返回 200 OK"
+else
+    fail "GET /img/logo.jpeg 未返回 200 OK"
+fi
+
+if echo "$RESP_JPG" | grep -qi "Content-Type:.*image/jpeg"; then
+    pass "JPEG Content-Type 为 image/jpeg"
+else
+    fail "JPEG Content-Type 不正确"
+fi
+
+# ======================================================
 # 测试 8: favicon MIME 类型
 # ======================================================
 echo ""
@@ -295,6 +315,19 @@ if echo "$RESP_405" | grep -qi "Allow:.*GET"; then
     pass "405 响应包含 Allow: GET 头"
 else
     fail "405 响应缺少 Allow 头"
+fi
+
+# 指导书要求：POST / 也应返回 405
+echo ""
+echo "--- 测试 11b: POST / → 405 ---"
+
+RESP_POST_ROOT=$(curl -is --max-time 5 -X POST \
+    "http://${HOST}:${PORT}/" 2>/dev/null)
+
+if echo "$RESP_POST_ROOT" | grep -q "405 Method Not Allowed"; then
+    pass "POST / 返回 405 Method Not Allowed（非 GET → 405）"
+else
+    fail "POST / 未返回 405"
 fi
 
 # ======================================================
