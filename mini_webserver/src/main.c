@@ -26,7 +26,7 @@ static void print_usage(const char *prog) {
     printf("    %s --pool <config_file>         - Start TCP server, thread pool (V0.8)\n", prog);
     printf("    %s --pool <config_file> <N>     - Start TCP server with N worker threads (V0.8)\n", prog);
     printf("    %s serve-epoll <max_requests>   - Start epoll HTTP server (V1.0, W2D5)\n", prog);
-    printf("    %s serve-http <max_requests>   - Start epoll HTTP server (V1.1, W3D1)\n", prog);
+    printf("    %s serve-http <max_requests>   - Start epoll HTTP server (V1.2, W3D2)\n", prog);
     printf("\n");
     printf("  User management:\n");
     printf("    %s list                         - List all users (linked list)\n", prog);
@@ -167,15 +167,15 @@ cleanup:
     }
 
     /*
-     * ===== Webserver V1.1 (W3D1): Epoll HTTP 服务器 =====
+     * ===== Webserver V1.2 (W3D2): Epoll HTTP 静态文件服务器 =====
      *
      * 命令格式：./mini_web_server serve-http <max_requests>
      *
-     * 支持完整 HTTP 请求解析、路由分发和日志系统：
-     *   GET /        → 200 OK + HTML 页面
-     *   GET /missing → 404 Not Found
-     *   POST /echo   → 200 OK + 回显请求体
-     *   系统日志 + 访问日志分别记录
+     * 支持完整 HTTP 请求解析、静态文件服务、路由分发和日志系统：
+     *   GET *       → 静态文件服务（路径映射 → MIME → 分块发送）
+     *   POST /echo  → 200 OK + 回显请求体
+     *   其他方法     → 405 Method Not Allowed
+     *   系统日志 + 访问日志（含 MIME 类型）分别记录
      *
      * 纯 epoll + 单线程事件循环，不依赖 select/多线程/多进程。
      */
@@ -191,7 +191,7 @@ cleanup:
             fprintf(stderr, "Warning: failed to open log files, continuing without logging\n");
         }
 
-        printf("Starting V1.1 epoll HTTP server (max %d requests)...\n", max_requests);
+        printf("Starting V1.2 epoll HTTP static file server (max %d requests)...\n", max_requests);
         if (http_server_run(8080, max_requests) < 0) {
             log_error("failed to start http server");
             log_close();

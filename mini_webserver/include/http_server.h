@@ -1,15 +1,16 @@
 /*
- * W3D1 http_server.h — 基于 epoll 的 HTTP 服务器 V1.1 头文件
+ * W3D2 http_server.h — 基于 epoll 的 HTTP 静态文件服务器 V1.2 头文件
  *
  * 功能：
- *   结合 W2D5 的 epoll 事件循环和 W3D1 的 HTTP 协议知识，
- *   实现一个支持完整 HTTP 请求/响应处理、路由分发和日志记录的 web 服务器。
+ *   结合 W2D5 的 epoll 事件循环和 W3D2 的静态文件服务，
+ *   实现一个支持静态文件响应、MIME 识别、路径安全和日志记录的 web 服务器。
  *
- * 对照 W3D1 知识点：
+ * 对照 W3D2 知识点：
  *   - epoll_wait 发现事件 → recv 追加缓冲区 → 判断 HTTP 完整性
- *   - 解析请求行、请求头和请求体 → 路由分发 → 构造响应 → send
- *   - 记录访问日志和系统日志 → epoll_ctl(DEL) + close
- *   - GET / → 200 + HTML, GET /missing → 404, POST /echo → 200
+ *   - 解析请求行、请求头和请求体 → 静态文件路由分发 → 构造响应
+ *   - 路径规范化 + realpath() 安全校验 → stat() 文件元数据
+ *   - MIME 映射 + 分块 read()+send_all() → 记录访问日志 + 系统日志
+ *   - GET * → 静态文件服务, POST /echo → 动态回显 (V1.1 兼容)
  */
 
 #ifndef HTTP_SERVER_H
@@ -38,12 +39,12 @@ typedef struct {
 #endif
 
 /*
- * 启动基于 epoll 的 HTTP 服务器 (W3D1 V1.1)
+ * 启动基于 epoll 的 HTTP 静态文件服务器 (W3D2 V1.2)
  *
  * 支持路由：
- *   GET /        → HTTP/1.1 200 OK + HTML 页面
- *   GET /missing → HTTP/1.1 404 Not Found
- *   POST /echo   → HTTP/1.1 200 OK + 回显请求体
+ *   GET *       → 静态文件服务（www/ 目录，MIME 识别，分块发送）
+ *   POST /echo  → HTTP/1.1 200 OK + 回显请求体（V1.1 兼容）
+ *   其他方法     → 405 Method Not Allowed
  *
  * 参数：
  *   port         - 监听端口号

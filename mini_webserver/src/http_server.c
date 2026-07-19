@@ -1,8 +1,8 @@
 /*
- * W3D1 http_server.c — 基于 epoll 的 HTTP 服务器 V1.1
+ * W3D2 http_server.c — 基于 epoll 的 HTTP 静态文件服务器 V1.2
  *
  * 功能：
- *   结合 W2D5 的 epoll 事件循环 + W3D1 的 HTTP 协议知识：
+ *   结合 W2D5 的 epoll 事件循环 + W3D2 的静态文件服务：
  *   1. socket() / bind() / listen() / epoll_create1()  启动监听
  *   2. epoll_ctl(ADD listen_fd)                         注册监听套接字
  *   3. epoll_wait()                                     等待就绪事件
@@ -10,14 +10,14 @@
  *   5. recv() → 追加到客户端接收缓冲区                    读取请求
  *   6. find_header_end() → 判断请求头是否完整             协议解析
  *   7. parse_http_request() → 提取 method/path/headers/body
- *   8. 路由分发：
- *        GET /        → 200 OK + HTML 页面
- *        GET /missing → 404 Not Found
- *        POST /echo   → 200 OK + 回显请求体
- *   9. 构造 HTTP 响应（Content-Type, Content-Length, Connection）
- *  10. send()                                            发送响应
- *  11. access_log() + log_info()                         记录日志
- *  12. epoll_ctl(DEL) + close()                          清理连接
+ *   8. 路由分发（V1.2）：
+ *        GET *       → serve_static_file() 静态文件服务
+ *        POST /echo  → 200 OK + 回显请求体（V1.1 兼容）
+ *        其他方法     → 405 Method Not Allowed
+ *   9. 静态文件服务：路径规范化 → realpath() 安全校验 →
+ *      stat() 元数据 → MIME 映射 → 分块 read()+send_all()
+ *  10. access_log() + log_info()                         记录日志
+ *  11. epoll_ctl(DEL) + close()                          清理连接
  *
  * 技术限制（验收标准）：
  *   - 纯 epoll + 单线程事件循环
@@ -27,6 +27,7 @@
 
 #include "http_server.h"
 #include "http_parser.h"
+#include "static_handler.h"
 #include "log.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +38,7 @@
 #include <sys/epoll.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 /*
  * 添加新客户端到客户端列表并注册到 epoll
@@ -141,157 +143,9 @@ static int find_client_by_fd(client_info_t *clients, int fd)
     return -1;
 }
 
-/*
- * 生成 HTTP 响应
- *
- * 路由规则：
- *   GET /        → HTTP 200 OK + HTML 页面
- *   GET /missing → HTTP 404 Not Found
- *   POST /echo   → HTTP 200 OK + 回显请求体
- *   其他          → HTTP 404 Not Found
- *
- * 返回响应体的长度（用于访问日志记录）
- */
-static int generate_response(const http_request_t *req, char *response,
-                             size_t response_size)
-{
-    const char *body;
-    int         body_len;
-    int         status_code;
-    const char *reason;
-    char        body_buf[HTTP_BODY_MAX + 256];
-
-    if (req == NULL || response == NULL) {
-        return 0;
-    }
-
-    /* ===== 路由：GET / ===== */
-    if (strcmp(req->method, "GET") == 0 && strcmp(req->path, "/") == 0) {
-        status_code = 200;
-        reason      = "OK";
-
-        body = "<!DOCTYPE html>\r\n"
-               "<html>\r\n"
-               "<head><meta charset=\"utf-8\"><title>MiniWeb V1.1</title></head>\r\n"
-               "<body>\r\n"
-               "<h1>Hello, HTTP!</h1>\r\n"
-               "<p>Welcome to MiniWeb V1.1 — Epoll HTTP Server (W3D1)</p>\r\n"
-               "</body>\r\n"
-               "</html>";
-        body_len = (int)strlen(body);
-
-        snprintf(response, response_size,
-                 "HTTP/1.1 %d %s\r\n"
-                 "Content-Type: text/html; charset=utf-8\r\n"
-                 "Content-Length: %d\r\n"
-                 "Connection: close\r\n"
-                 "\r\n"
-                 "%s",
-                 status_code, reason, body_len, body);
-
-    /* ===== 路由：GET /missing → 404 ===== */
-    } else if (strcmp(req->method, "GET") == 0 && strcmp(req->path, "/missing") == 0) {
-        status_code = 404;
-        reason      = "Not Found";
-
-        body = "<!DOCTYPE html>\r\n"
-               "<html>\r\n"
-               "<head><meta charset=\"utf-8\"><title>404</title></head>\r\n"
-               "<body>\r\n"
-               "<h1>404 Not Found</h1>\r\n"
-               "<p>The requested resource was not found on this server.</p>\r\n"
-               "</body>\r\n"
-               "</html>";
-        body_len = (int)strlen(body);
-
-        snprintf(response, response_size,
-                 "HTTP/1.1 %d %s\r\n"
-                 "Content-Type: text/html; charset=utf-8\r\n"
-                 "Content-Length: %d\r\n"
-                 "Connection: close\r\n"
-                 "\r\n"
-                 "%s",
-                 status_code, reason, body_len, body);
-
-    /* ===== 路由：POST /echo → 200 OK + 回显请求体 ===== */
-    } else if (strcmp(req->method, "POST") == 0 && strcmp(req->path, "/echo") == 0) {
-        status_code = 200;
-        reason      = "OK";
-
-        /* 构造响应体：回显请求体内容 */
-        if (req->body_len > 0) {
-            snprintf(body_buf, sizeof(body_buf),
-                     "Echo: %s", req->body);
-        } else {
-            snprintf(body_buf, sizeof(body_buf),
-                     "Echo: (empty body)");
-        }
-        body = body_buf;
-        body_len = (int)strlen(body);
-
-        snprintf(response, response_size,
-                 "HTTP/1.1 %d %s\r\n"
-                 "Content-Type: text/plain; charset=utf-8\r\n"
-                 "Content-Length: %d\r\n"
-                 "Connection: close\r\n"
-                 "\r\n"
-                 "%s",
-                 status_code, reason, body_len, body);
-
-    /* ===== 仅有 GET 和 POST 被支持的方法 ===== */
-    } else if (strcmp(req->method, "GET") != 0 && strcmp(req->method, "POST") != 0) {
-        status_code = 405;
-        reason      = "Method Not Allowed";
-
-        body = "<!DOCTYPE html>\r\n"
-               "<html>\r\n"
-               "<head><meta charset=\"utf-8\"><title>405</title></head>\r\n"
-               "<body>\r\n"
-               "<h1>405 Method Not Allowed</h1>\r\n"
-               "</body>\r\n"
-               "</html>";
-        body_len = (int)strlen(body);
-
-        snprintf(response, response_size,
-                 "HTTP/1.1 %d %s\r\n"
-                 "Content-Type: text/html; charset=utf-8\r\n"
-                 "Content-Length: %d\r\n"
-                 "Connection: close\r\n"
-                 "Allow: GET, POST\r\n"
-                 "\r\n"
-                 "%s",
-                 status_code, reason, body_len, body);
-
-    /* ===== 其他 GET/POST 路径 → 404 Not Found ===== */
-    } else {
-        status_code = 404;
-        reason      = "Not Found";
-
-        body = "<!DOCTYPE html>\r\n"
-               "<html>\r\n"
-               "<head><meta charset=\"utf-8\"><title>404</title></head>\r\n"
-               "<body>\r\n"
-               "<h1>404 Not Found</h1>\r\n"
-               "</body>\r\n"
-               "</html>";
-        body_len = (int)strlen(body);
-
-        snprintf(response, response_size,
-                 "HTTP/1.1 %d %s\r\n"
-                 "Content-Type: text/html; charset=utf-8\r\n"
-                 "Content-Length: %d\r\n"
-                 "Connection: close\r\n"
-                 "\r\n"
-                 "%s",
-                 status_code, reason, body_len, body);
-    }
-
-    return body_len;
-}
-
 /* ===== http_server_run() ==============================================
  *
- * 主函数：启动基于 epoll 的 HTTP 服务器 (W3D1 V1.1)
+ * 主函数：启动基于 epoll 的 HTTP 服务器 (W3D2 V1.2)
  *
  * 整体流程：
  *   socket → bind → listen → epoll_create1 →
@@ -330,11 +184,11 @@ int http_server_run(int port, int max_requests)
         clients[i].fd = -1;
     }
 
-    printf("=== W3D1 HTTP Server V1.1 (epoll) ===\n");
+    printf("=== W3D2 HTTP Server V1.2 (epoll + static files) ===\n");
     printf("[SERVER] Max requests: %d\n", max_requests);
 
     /* 系统日志 */
-    log_info("HTTP Server V1.1 starting...");
+    log_info("HTTP Server V1.2 starting...");
 
     /* ===== socket() ===== */
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -409,7 +263,7 @@ int http_server_run(int port, int max_requests)
     printf("[SERVER] listen_fd (fd=%d) registered to epoll (epfd=%d)\n",
            listen_fd, epfd);
 
-    printf("\n[SERVER] HTTP Server V1.1 is running on http://127.0.0.1:%d/\n", port);
+    printf("\n[SERVER] HTTP Server V1.2 is running on http://127.0.0.1:%d/\n", port);
     printf("[SERVER] Process up to %d requests, then exit normally.\n\n", max_requests);
 
     /* ===== 主事件循环 ===== */
@@ -516,12 +370,18 @@ int http_server_run(int port, int max_requests)
                     /* ===== 请求完整，开始解析 ===== */
                     {
                         http_request_t req;
-                        char           resp_buf[RESP_BUF_SIZE];
-                        int            resp_body_len;
+                        int            status_code  = 500;
+                        const char    *mime_type    = "application/octet-stream";
+                        int            body_bytes   = 0;
+                        struct timespec t_start, t_end;
+                        long           elapsed_ms = 0;
 
                         printf("[SERVER] Complete request on fd=%d, "
                                "buffer=%d bytes\n",
                                client_fd, clients[client_idx].buf_len);
+
+                        /* 记录请求处理开始时间 */
+                        clock_gettime(CLOCK_MONOTONIC, &t_start);
 
                         /*
                          * ===== 解析 HTTP 请求 =====
@@ -532,35 +392,75 @@ int http_server_run(int port, int max_requests)
                                                clients[client_idx].buf_len,
                                                &req) != 0) {
                             /* 解析失败 → 400 Bad Request */
+                            const char *body = "400 Bad Request\r\n";
+                            char resp[256];
+
                             printf("[SERVER] Failed to parse HTTP request on fd=%d\n",
                                    client_fd);
-                            snprintf(resp_buf, sizeof(resp_buf),
+                            body_bytes = (int)strlen(body) - 2; /* 不计算 \r\n */
+                            snprintf(resp, sizeof(resp),
                                      "HTTP/1.1 400 Bad Request\r\n"
                                      "Content-Type: text/plain\r\n"
-                                     "Content-Length: 17\r\n"
+                                     "Content-Length: %d\r\n"
                                      "Connection: close\r\n"
                                      "\r\n"
-                                     "400 Bad Request\r\n");
-                            resp_body_len = 17;
-                            send(client_fd, resp_buf, strlen(resp_buf), 0);
+                                     "%s",
+                                     body_bytes, body);
+                            send(client_fd, resp, strlen(resp), 0);
 
-                            access_log(clients[client_idx].ip, "-", "-", "-", 400, resp_body_len);
+                            status_code = 400;
+                            mime_type   = "text/plain";
+
+                            access_log(clients[client_idx].ip, "-", "-", "-",
+                                       400, mime_type, body_bytes);
                             log_warning("HTTP parse failed, 400 returned");
-                        } else {
-                            /*
-                             * ===== 路由分发 + 生成响应 =====
-                             */
-                            memset(resp_buf, 0, sizeof(resp_buf));
-                            resp_body_len = generate_response(&req, resp_buf,
-                                                              sizeof(resp_buf));
 
+                        } else if (strcmp(req.method, "GET") == 0) {
                             /*
-                             * ===== send() 发送响应 =====
+                             * ===== GET 请求 → 静态文件服务 (V1.2) =====
+                             * 所有 GET 请求交由 serve_static_file() 处理：
+                             *   - 路径规范化 + document root 安全校验
+                             *   - stat() 获取文件元数据
+                             *   - 扩展名 → MIME 映射
+                             *   - 分块 read() + send_all() 发送
+                             *   - 自动返回 200/403/404/500
                              */
+                            printf("[SERVER] GET %s — routing to static file handler\n",
+                                   req.path);
+                            serve_static_file(client_fd, req.path,
+                                             &status_code, &mime_type, &body_bytes);
+
+                        } else if (strcmp(req.method, "POST") == 0 &&
+                                   strcmp(req.path, "/echo") == 0) {
+                            /*
+                             * ===== POST /echo → 动态路由 (V1.1 兼容) =====
+                             */
+                            char resp_buf[RESP_BUF_SIZE];
+                            char body_buf[HTTP_BODY_MAX + 256];
+
+                            status_code = 200;
+                            mime_type   = "text/plain; charset=utf-8";
+
+                            if (req.body_len > 0) {
+                                snprintf(body_buf, sizeof(body_buf),
+                                         "Echo: %s", req.body);
+                            } else {
+                                snprintf(body_buf, sizeof(body_buf),
+                                         "Echo: (empty body)");
+                            }
+                            body_bytes = (int)strlen(body_buf);
+                            snprintf(resp_buf, sizeof(resp_buf),
+                                     "HTTP/1.1 200 OK\r\n"
+                                     "Content-Type: text/plain; charset=utf-8\r\n"
+                                     "Content-Length: %d\r\n"
+                                     "Connection: close\r\n"
+                                     "\r\n"
+                                     "%s",
+                                     body_bytes, body_buf);
+
                             {
-                                ssize_t resp_total = strlen(resp_buf);
                                 ssize_t sent = send(client_fd, resp_buf,
-                                                    resp_total, 0);
+                                                    strlen(resp_buf), 0);
                                 if (sent < 0) {
                                     printf("[SERVER] send() failed on fd=%d: %s\n",
                                            client_fd, strerror(errno));
@@ -571,37 +471,76 @@ int http_server_run(int port, int max_requests)
                                 }
                             }
 
+                        } else if (strcmp(req.method, "GET") != 0 &&
+                                   strcmp(req.method, "POST") != 0) {
                             /*
-                             * ===== 记录日志 =====
-                             *   - 访问日志：记录每个 HTTP 请求的处理结果
-                             *   - 系统日志：记录路由分发信息
+                             * ===== 不支持的方法 → 405 Method Not Allowed =====
                              */
+                            const char *body = "<!DOCTYPE html>\r\n<html>\r\n"
+                                               "<head><meta charset=\"utf-8\"><title>405</title></head>\r\n"
+                                               "<body><h1>405 Method Not Allowed</h1></body>\r\n</html>";
+                            char resp[1024];
+
+                            status_code = 405;
+                            mime_type   = "text/html; charset=utf-8";
+                            body_bytes  = (int)strlen(body);
+                            snprintf(resp, sizeof(resp),
+                                     "HTTP/1.1 405 Method Not Allowed\r\n"
+                                     "Content-Type: text/html; charset=utf-8\r\n"
+                                     "Content-Length: %d\r\n"
+                                     "Connection: close\r\n"
+                                     "Allow: GET\r\n"
+                                     "\r\n"
+                                     "%s",
+                                     body_bytes, body);
+                            send(client_fd, resp, strlen(resp), 0);
+
+                        } else {
+                            /*
+                             * ===== POST 到非 /echo 路径 → 404 =====
+                             */
+                            const char *body = "<!DOCTYPE html>\r\n<html>\r\n"
+                                               "<head><meta charset=\"utf-8\"><title>404</title></head>\r\n"
+                                               "<body><h1>404 Not Found</h1></body>\r\n</html>";
+                            char resp[1024];
+
+                            status_code = 404;
+                            mime_type   = "text/html; charset=utf-8";
+                            body_bytes  = (int)strlen(body);
+                            snprintf(resp, sizeof(resp),
+                                     "HTTP/1.1 404 Not Found\r\n"
+                                     "Content-Type: text/html; charset=utf-8\r\n"
+                                     "Content-Length: %d\r\n"
+                                     "Connection: close\r\n"
+                                     "\r\n"
+                                     "%s",
+                                     body_bytes, body);
+                            send(client_fd, resp, strlen(resp), 0);
+                        }
+
+                        /* 计算处理耗时 */
+                        clock_gettime(CLOCK_MONOTONIC, &t_end);
+                        elapsed_ms = (t_end.tv_sec - t_start.tv_sec) * 1000 +
+                                     (t_end.tv_nsec - t_start.tv_nsec) / 1000000;
+
+                        /*
+                         * ===== 记录日志 =====
+                         */
+                        {
+                            /* 访问日志（V1.2 包含 MIME 类型） */
+                            access_log(clients[client_idx].ip,
+                                       req.method, req.path,
+                                       req.version,
+                                       status_code, mime_type, body_bytes);
+
+                            /* 系统日志 */
                             {
-                                int status_code = 200;
-                                if (strncmp(resp_buf, "HTTP/1.1 200", 12) == 0) {
-                                    status_code = 200;
-                                } else if (strncmp(resp_buf, "HTTP/1.1 404", 12) == 0) {
-                                    status_code = 404;
-                                } else if (strncmp(resp_buf, "HTTP/1.1 405", 12) == 0) {
-                                    status_code = 405;
-                                }
-
-                                /* 访问日志 */
-                                access_log(clients[client_idx].ip,
-                                           req.method, req.path,
-                                           req.version,
-                                           status_code,
-                                           resp_body_len);
-
-                                /* 系统日志 */
-                                {
-                                    char log_msg[512];
-                                    snprintf(log_msg, sizeof(log_msg),
-                                             "request handled: %s %s %s -> %d (%d bytes)",
-                                             req.method, req.path, req.version,
-                                             status_code, resp_body_len);
-                                    log_info(log_msg);
-                                }
+                                char log_msg[512];
+                                snprintf(log_msg, sizeof(log_msg),
+                                         "request handled: %s %s %s -> %d (%s, %d bytes, %ldms)",
+                                         req.method, req.path, req.version,
+                                         status_code, mime_type, body_bytes, elapsed_ms);
+                                log_info(log_msg);
                             }
                         }
 

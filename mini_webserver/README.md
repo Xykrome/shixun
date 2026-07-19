@@ -78,6 +78,7 @@ listen_fd → accept() → client_fd → task queue → worker → handler → c
 | Day08 | `make test8` | 线程池 TCP 服务器 |
 | Day10 | `make test9` | epoll Webserver V1.0 |
 | Day11 | `make test10` | HTTP Server V1.1 (W3D1) |
+| Day12 | `make test11` | HTTP Static File Server V1.2 (W3D2) |
 | 全部 | `make test-all` | 运行所有测试 |
 
 ## V1.0 架构
@@ -104,4 +105,25 @@ epoll_wait → recv → 追加缓冲区 → 判断完整性(\r\n\r\n + Content-L
 - 支持 GET /（200 + HTML）、GET /missing（404）、POST /echo（200 + 回显）
 - 系统日志 + 访问日志分离，支持 DEBUG/INFO/WARNING/ERROR 四级
 - 正确设置 Content-Type、Content-Length、Connection 响应头
+- 请求计数达到 max_requests 后正常退出
+
+## V1.2 架构 (W3D2)
+
+```
+epoll_wait → recv → 追加缓冲区 → 判断完整性(\r\n\r\n + Content-Length)
+→ HTTP 解析 → GET → normalize_path() → realpath() 安全校验
+→ stat() 文件元数据 → get_mime_type() 查 MIME 映射表
+→ 发送响应头(Content-Type + Content-Length + Connection)
+→ open() + 分块 read() + send_all() 发送文件 → close(file_fd)
+→ access_log(含MIME) + log_info(含耗时) → epoll_ctl(DEL) + close(client_fd)
+```
+
+- 纯 epoll + 单线程事件循环（LT 模式 + EPOLLIN）
+- 静态文件服务：URL 路径安全映射到 `www/` 目录，15 种 MIME 类型识别
+- 路径安全：三层防护——`..` 检测 + `realpath()` 解析 + document root 边界验证
+- 目录穿越 `/../etc/passwd` 返回 403，不存在文件返回 404，非 GET 方法返回 405
+- 文件发送：8KB 固定缓冲区 + `send_all()` 可靠发送（处理部分 send）
+- Content-Type 来自 MIME 映射表，Content-Length 来自 `st.st_size`（非 strlen）
+- 访问日志增强：增加 MIME 类型字段；系统日志增加请求耗时（ms）
+- 保留 V1.1 兼容：POST /echo 动态回显路由
 - 请求计数达到 max_requests 后正常退出

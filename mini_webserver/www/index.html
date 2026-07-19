@@ -1,10 +1,41 @@
-<!DOCTYPE html> 
-<html>
-    <head>
-        <meta charset="utf-8">
-        <title>MiniWeb</title>
-    </head>
-    <body>
-        <H1>Hello,MiniWeb</H1>
-    </body>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>MiniWeb V1.2 — Blog</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <header>
+        <h1>Hello, HTTP!</h1>
+        <p class="subtitle">Welcome to MiniWeb V1.2 — Epoll Static File Server (W3D2)</p>
+    </header>
+    <main>
+        <article>
+            <h2>W3D2 实训笔记</h2>
+            <p>今天完成了静态文件服务器的构建。核心工作：</p>
+            <ul>
+                <li><strong>URL 路径映射</strong>：将请求路径安全映射到 <code>www/</code> 目录</li>
+                <li><strong>MIME 类型识别</strong>：根据文件扩展名返回正确的 Content-Type</li>
+                <li><strong>目录穿越防护</strong>：使用 <code>realpath()</code> 限定 document root</li>
+                <li><strong>分块文件发送</strong>：使用 8KB 固定缓冲区 + <code>send_all()</code></li>
+            </ul>
+        </article>
+        <article>
+            <h2>技术栈</h2>
+            <ul>
+                <li>I/O 多路复用：epoll (LT + EPOLLIN)</li>
+                <li>HTTP 协议：HTTP/1.1 请求解析 + 响应构造</li>
+                <li>文件服务：stat() + open() + read() 分块发送</li>
+                <li>安全机制：路径规范化 + realpath() 边界校验</li>
+                <li>日志系统：双文件日志（system.log + access.log）</li>
+            </ul>
+        </article>
+    </main>
+    <footer>
+        <p>Powered by MiniWeb V1.2 — Built with epoll</p>
+    </footer>
+    <script src="/js/app.js"></script>
+</body>
 </html>

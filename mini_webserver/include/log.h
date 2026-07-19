@@ -1,17 +1,17 @@
 /*
- * W3D1 log.h — 增强日志系统头文件
+ * W3D2 log.h — 增强日志系统头文件
  *
  * 功能：
  *   1. 系统日志：记录服务器运行状态、错误和调试信息
  *      - 支持四级日志：DEBUG / INFO / WARNING / ERROR
  *      - 格式：时间 [LEVEL] 消息
  *   2. 访问日志：记录每个 HTTP 请求的处理结果
- *      - 格式：时间 客户端IP 方法 URL HTTP版本 状态码 响应字节数
+ *      - 格式：时间 客户端IP 方法 URL HTTP版本 状态码 MIME 响应字节数
  *
- * 对照 W3D1 知识点：
+ * 对照 W3D2 知识点：
  *   - 日志分级：DEBUG < INFO < WARNING < ERROR
  *   - 系统日志关注服务器自身事件
- *   - 访问日志关注客户端请求的处理结果
+ *   - 访问日志关注客户端请求的处理结果（含 MIME 类型）
  */
 
 #ifndef LOG_H
@@ -53,11 +53,12 @@ void log_error(const char *message);
  *   path          - 请求路径
  *   http_version  - HTTP 版本（如 "HTTP/1.1"）
  *   status_code   - HTTP 状态码（如 200）
+ *   mime_type     - 响应的 MIME 类型（如 "text/html; charset=utf-8"）
  *   response_size - 响应体字节数
  */
 void access_log(const char *client_ip, const char *method,
                 const char *path, const char *http_version,
-                int status_code, int response_size);
+                int status_code, const char *mime_type, int response_size);
 
 /* 关闭日志系统（关闭并刷新两个日志文件） */
 void log_close(void);

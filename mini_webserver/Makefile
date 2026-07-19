@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Iinclude
 LDFLAGS = -lpthread
-SRCS = src/main.c src/config.c src/log.c src/http_response.c src/user_store.c src/user_index.c src/process_server.c src/request_handler.c src/thread_server.c src/tcp_server.c src/tcp_fork_server.c src/thread_pool.c src/tcp_pool_server.c src/epoll_server.c src/http_parser.c src/http_server.c
+SRCS = src/main.c src/config.c src/log.c src/http_response.c src/user_store.c src/user_index.c src/process_server.c src/request_handler.c src/thread_server.c src/tcp_server.c src/tcp_fork_server.c src/thread_pool.c src/tcp_pool_server.c src/epoll_server.c src/http_parser.c src/http_server.c src/static_handler.c
 OBJS = $(SRCS:.c=.o)
 TARGET = mini_web_server
 
@@ -59,6 +59,10 @@ test9: $(TARGET)
 test10: $(TARGET)
 	./tests/test_day11.sh
 
+# Day12 测试（W3D2 — HTTP Static File Server V1.2）
+test11: $(TARGET)
+	./tests/test_day12.sh
+
 # 运行所有测试
 test-all: $(TARGET)
 	./tests/test_day01.sh
@@ -70,4 +74,4 @@ test-all: $(TARGET)
 	./tests/test_day07.sh
 	./tests/test_day08.sh
 
-.PHONY: all clean run test test2 test3 test4 test5 test6 test7 test8 test9 test10 test-all
+.PHONY: all clean run test test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test-all

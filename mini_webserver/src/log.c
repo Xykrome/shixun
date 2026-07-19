@@ -1,16 +1,16 @@
 /*
- * W3D1 log.c — 增强日志系统实现
+ * W3D2 log.c — 增强日志系统实现
  *
  * 功能：
  *   1. 系统日志：记录服务器运行状态、错误和调试信息
  *      - 支持四级日志：DEBUG / INFO / WARNING / ERROR
  *      - 格式：YYYY-MM-DD HH:MM:SS [LEVEL] 消息
  *   2. 访问日志：记录每个 HTTP 请求的处理结果
- *      - 格式：YYYY-MM-DD HH:MM:SS IP METHOD PATH HTTP版本 状态码 响应字节数
+ *      - 格式：YYYY-MM-DD HH:MM:SS IP METHOD PATH HTTP-VERSION STATUS MIME BYTES
  *
- * 对照 W3D1 验收标准：
+ * 对照 W3D2 验收标准：
  *   - 系统日志和访问日志分别写入不同文件
- *   - 访问日志包含：时间、客户端IP、方法、URL、状态码
+ *   - 访问日志包含：时间、客户端IP、方法、URL、MIME、状态码、响应字节数
  *   - 系统日志包含：时间、级别、事件描述
  *   - 支持 DEBUG、INFO、WARNING、ERROR 四级
  */
@@ -108,7 +108,7 @@ void log_error(const char *message)
 
 void access_log(const char *client_ip, const char *method,
                 const char *path, const char *http_version,
-                int status_code, int response_size)
+                int status_code, const char *mime_type, int response_size)
 {
     char timestamp[64];
 
@@ -119,19 +119,20 @@ void access_log(const char *client_ip, const char *method,
     get_timestamp(timestamp, sizeof(timestamp));
 
     /*
-     * 访问日志格式：
-     *   时间 IP 方法 URL HTTP版本 状态码 响应字节数
+     * 访问日志格式（V1.2 增强）：
+     *   时间 IP 方法 URL HTTP版本 状态码 MIME 响应字节数
      *
      * 示例：
-     *   2026-07-18 09:05:21 127.0.0.1 GET / HTTP/1.1 200 21
+     *   2026-07-19 09:05:21 127.0.0.1 GET / HTTP/1.1 200 text/html; charset=utf-8 1234
      */
-    fprintf(access_log_fp, "%s %s %s %s %s %d %d\n",
+    fprintf(access_log_fp, "%s %s %s %s %s %d %s %d\n",
             timestamp,
             client_ip,
             method,
             path,
             http_version,
             status_code,
+            mime_type ? mime_type : "-",
             response_size);
     fflush(access_log_fp);
 }
