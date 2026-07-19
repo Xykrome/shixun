@@ -84,6 +84,7 @@ void generate_search_form_html(char *html, int html_size);
  */
 void generate_result_page_html(const char *class_str, const char *keyword,
                                const char *table_rows, int match_count,
+                               int query_mode,
                                char *html, int html_size);
 
 /*

@@ -215,18 +215,37 @@ else
 fi
 
 # ======================================================
-# 测试 10: 缺少参数 → 400
+# 测试 10: 仅班级参数 → 显示该班全部学生
 # ======================================================
 echo ""
-echo "--- 测试 10: 缺少参数 ---"
+echo "--- 测试 10: 仅班级参数 ---"
 
 RESP=$(curl -s --max-time 5 \
     "http://${HOST}:${PORT}/search?class=2011" 2>/dev/null)
 
-if echo "$RESP" | grep -q "参数格式错误\|400"; then
-    pass "缺少 keyword 参数返回错误"
+if echo "$RESP" | grep -q "查询结果"; then
+    pass "仅 class=2011 返回查询结果（显示全班学生）"
 else
-    fail "缺少 keyword 参数未报错"
+    fail "仅 class=2011 未返回结果"
+fi
+
+# 仅关键词 → 跨班级搜索
+echo ""
+echo "--- 测试 10b: 仅关键词参数 ---"
+
+RESP=$(curl -s --max-time 5 \
+    "http://${HOST}:${PORT}/search?keyword=%E7%94%B7" 2>/dev/null)
+
+if echo "$RESP" | grep -q "查询结果"; then
+    pass "仅 keyword=男 跨班级搜索返回结果"
+else
+    fail "仅 keyword=男 未返回结果"
+fi
+
+if echo "$RESP" | grep -q "张三\|小明"; then
+    pass "仅 keyword=男 同时匹配 2011 和 2012 班男生"
+else
+    fail "仅 keyword=男 未匹配预期学生"
 fi
 
 # ======================================================

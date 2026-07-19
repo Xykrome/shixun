@@ -157,8 +157,8 @@ int parse_query_string(const char *query,
         }
     }
 
-    /* 必须同时有 class 和 keyword */
-    if (!found_class || !found_keyword) {
+    /* class 和 keyword 均为可选，至少需要一个 */
+    if (!found_class && !found_keyword) {
         return -1;
     }
 
@@ -325,9 +325,12 @@ int query_records(const char *class_str, const char *keyword,
             if (ll > 1 && line[ll - 2] == '\r') line[ll - 2] = '\0';
         }
 
-        /* 检查是否包含 keyword（大小写敏感） */
-        if (strstr(line, keyword) == NULL) {
-            continue;
+        /* 检查是否包含 keyword（大小写敏感）。
+         * keyword 为空或 NULL 时匹配所有行。 */
+        if (keyword != NULL && keyword[0] != '\0') {
+            if (strstr(line, keyword) == NULL) {
+                continue;
+            }
         }
 
         /* 解析制表符分隔的字段 */
@@ -384,6 +387,116 @@ int query_records(const char *class_str, const char *keyword,
     return 0;
 }
 
+/*
+ * 在所有 data/*.txt 文件中搜索 keyword。
+ * 用于只指定 keyword 不指定 class 的跨班级查询。
+ */
+static int query_all_classes(const char *keyword,
+                             char *results_buf, int buf_size,
+                             int *match_count)
+{
+    char data_root_abs[256];
+    int matches = 0;
+    int pos = 0;
+
+    *match_count = 0;
+    results_buf[0] = '\0';
+
+    if (keyword == NULL || keyword[0] == '\0') return -1;
+
+    if (realpath(DATA_DIR, data_root_abs) == NULL) return -1;
+
+    /* 简单方案：遍历已知的班级文件 2011~2012 */
+    /* 实际项目中可用 opendir/readdir 遍历目录 */
+    const char *class_list[] = { "2011", "2012", NULL };
+    for (int i = 0; class_list[i] != NULL; i++) {
+        char file_path[256];
+        FILE *fp;
+        char line[1024];
+
+        snprintf(file_path, sizeof(file_path), "%s/%s.txt", DATA_DIR, class_list[i]);
+
+        /* 安全检查 */
+        {
+            char resolved[512];
+            if (realpath(file_path, resolved) != NULL) {
+                size_t rl = strlen(data_root_abs);
+                if (strncmp(resolved, data_root_abs, rl) != 0 ||
+                    (resolved[rl] != '/' && resolved[rl] != '\0')) {
+                    continue;  /* 路径越界，跳过 */
+                }
+            }
+        }
+
+        fp = fopen(file_path, "r");
+        if (fp == NULL) continue;
+
+        while (fgets(line, sizeof(line), fp) != NULL) {
+            char *tab1, *tab2;
+            char student_id[64], name[64], gender[64];
+            char class_id[8];
+
+            /* 去掉换行 */
+            size_t ll = strlen(line);
+            if (ll > 0 && line[ll - 1] == '\n') line[ll - 1] = '\0';
+            if (ll > 1 && line[ll - 2] == '\r') line[ll - 2] = '\0';
+
+            /* 匹配 keyword */
+            if (strstr(line, keyword) == NULL) continue;
+
+            /* 解析制表符分隔 */
+            tab1 = strchr(line, '\t');
+            tab2 = tab1 ? strchr(tab1 + 1, '\t') : NULL;
+
+            if (tab1 && tab2) {
+                int id_len   = (int)(tab1 - line);
+                int name_len = (int)(tab2 - tab1 - 1);
+                int gd_len   = (int)strlen(tab2 + 1);
+
+                if (id_len >= (int)sizeof(student_id)) id_len = (int)sizeof(student_id) - 1;
+                if (name_len >= (int)sizeof(name)) name_len = (int)sizeof(name) - 1;
+                if (gd_len >= (int)sizeof(gender)) gd_len = (int)sizeof(gender) - 1;
+
+                memcpy(student_id, line, id_len);
+                student_id[id_len] = '\0';
+                memcpy(name, tab1 + 1, name_len);
+                name[name_len] = '\0';
+                memcpy(gender, tab2 + 1, gd_len);
+                gender[gd_len] = '\0';
+            } else {
+                strncpy(student_id, line, sizeof(student_id) - 1);
+                student_id[sizeof(student_id) - 1] = '\0';
+                name[0] = '-'; name[1] = '\0';
+                gender[0] = '-'; gender[1] = '\0';
+            }
+
+            strncpy(class_id, class_list[i], sizeof(class_id) - 1);
+            class_id[sizeof(class_id) - 1] = '\0';
+
+            {
+                char esc_id[128], esc_name[128], esc_gender[64], esc_class[8];
+                html_escape(student_id, esc_id, sizeof(esc_id));
+                html_escape(name, esc_name, sizeof(esc_name));
+                html_escape(gender, esc_gender, sizeof(esc_gender));
+                html_escape(class_id, esc_class, sizeof(esc_class));
+
+                int written = snprintf(results_buf + pos, buf_size - pos,
+                    "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+                    esc_class, esc_id, esc_name, esc_gender);
+                if (written > 0 && pos + written < buf_size) {
+                    pos += written;
+                } else break;
+                matches++;
+            }
+        }
+        fclose(fp);
+    }
+
+    results_buf[pos] = '\0';
+    *match_count = matches;
+    return 0;
+}
+
 /* ===== HTML 页面生成 (UESTC 风格) ====================================== */
 
 /*
@@ -401,7 +514,7 @@ static int write_page_head(char *html, int html_size)
         "<style>\r\n"
         "*{margin:0;padding:0;box-sizing:border-box;}\r\n"
         "body{font-family:\"Microsoft YaHei\",sans-serif;"
-        "background:#f5f6f8;color:#1b1f27;}\r\n"
+        "background:#f8f9fa;color:#1b1f27;}\r\n"
         ".header{background:white;border-bottom:1px solid #e5e7eb;}\r\n"
         ".header-inner{width:1100px;margin:auto;height:90px;"
         "display:flex;align-items:center;justify-content:space-between;}\r\n"
@@ -432,10 +545,10 @@ static int write_page_head(char *html, int html_size)
         "h2{font-size:52px;margin-bottom:20px;}\r\n"
         ".result-info{color:#6b7280;margin-bottom:30px;}\r\n"
         "table{width:100%%;border-collapse:collapse;}\r\n"
-        "thead{background:#121722;color:white;}\r\n"
-        "thead th{text-align:left;padding:18px;}\r\n"
-        "tbody td{padding:18px;border-bottom:1px solid #e5e7eb;background:white;}\r\n"
-        "tbody tr:hover td{background:#f8fafc;}\r\n"
+        "thead{background:#000;color:white;}\r\n"
+        "thead th{text-align:left;padding:14px 18px;}\r\n"
+        "tbody td{padding:14px 18px;background:white;}\r\n"
+        "tbody tr:not(:last-child) td{border-bottom:1px solid #f0f0f0;}\r\n"
         ".no-result{color:red;font-size:20px;padding:40px 0;}\r\n"
         ".error-title{color:#cc0000;font-size:28px;margin-bottom:20px;}\r\n"
         ".error-msg{color:#666;font-size:18px;margin-bottom:20px;}\r\n"
@@ -521,12 +634,35 @@ void generate_search_form_html(char *html, int html_size)
  */
 void generate_result_page_html(const char *class_str, const char *keyword,
                                const char *table_rows, int match_count,
+                               int query_mode,
                                char *html, int html_size)
 {
     char esc_class[16], esc_keyword[128];
+    char info_text[256];
+    const char *col_headers;
     int pos = 0;
+
     html_escape(class_str, esc_class, sizeof(esc_class));
     html_escape(keyword, esc_keyword, sizeof(esc_keyword));
+
+    /* info 文字按模式生成 */
+    if (query_mode == 1) {
+        /* 仅班级 */
+        snprintf(info_text, sizeof(info_text),
+                 "班级 %s，共 %d 条记录。", esc_class, match_count);
+        col_headers = "<tr><th>学号</th><th>姓名</th><th>性别</th></tr>";
+    } else if (query_mode == 2) {
+        /* 仅关键词 */
+        snprintf(info_text, sizeof(info_text),
+                 "关键词 %s，共 %d 条记录。", esc_keyword, match_count);
+        col_headers = "<tr><th>班级</th><th>学号</th><th>姓名</th><th>性别</th></tr>";
+    } else {
+        /* 班级 + 关键词 */
+        snprintf(info_text, sizeof(info_text),
+                 "班级 %s，关键词 %s，共 %d 条记录。",
+                 esc_class, esc_keyword, match_count);
+        col_headers = "<tr><th>学号</th><th>姓名</th><th>性别</th></tr>";
+    }
 
     pos += write_page_head(html + pos, html_size - pos);
     pos += write_header(html + pos, html_size - pos);
@@ -555,15 +691,14 @@ void generate_result_page_html(const char *class_str, const char *keyword,
         "<section class=\"result\">\r\n"
         "<div class=\"result-tag\">RESULT</div>\r\n"
         "<h2>查询结果</h2>\r\n"
-        "<p class=\"result-info\">班级 %s，关键词 %s，共 %d 条记录。</p>\r\n",
-        esc_class, esc_keyword, esc_class, esc_keyword, match_count);
+        "<p class=\"result-info\">%s</p>\r\n",
+        esc_class, esc_keyword, info_text);
 
     if (match_count > 0) {
         pos += snprintf(html + pos, html_size - pos,
-            "<table>\r\n<thead>\r\n"
-            "<tr><th>学号</th><th>姓名</th><th>性别</th></tr>\r\n"
-            "</thead>\r\n<tbody>\r\n%s</tbody>\r\n</table>\r\n",
-            table_rows);
+            "<table>\r\n<thead>\r\n%s\r\n</thead>\r\n"
+            "<tbody>\r\n%s</tbody>\r\n</table>\r\n",
+            col_headers, table_rows);
     } else {
         pos += snprintf(html + pos, html_size - pos,
             "<div class=\"no-result\">未找到符合条件的记录</div>\r\n");
@@ -679,87 +814,123 @@ int handle_search_request(int client_fd, const char *method,
         return html_len;
     }
 
-    /* ---- 解析查询参数 ---- */
-    if (parse_query_string(query_str,
-                           class_buf, sizeof(class_buf),
-                           keyword_buf, sizeof(keyword_buf)) != 0) {
-        *status_code = 400;
-        generate_error_page_html(400, "Bad Request",
-                                 "参数格式错误，请提供 class 和 keyword 参数。",
-                                 html, sizeof(html));
-        html_len = (int)strlen(html);
-        *body_bytes = html_len;
-        send_response(client_fd, 400, "Bad Request",
-                      "text/html; charset=utf-8", html, html_len);
-        log_info("/search parse failed, 400 returned");
-        return html_len;
-    }
-
-    /* ---- 校验 class ---- */
-    if (!validate_class(class_buf)) {
-        *status_code = 400;
-        generate_error_page_html(400, "Bad Request",
-                                 "班级格式错误",
-                                 html, sizeof(html));
-        html_len = (int)strlen(html);
-        *body_bytes = html_len;
-        send_response(client_fd, 400, "Bad Request",
-                      "text/html; charset=utf-8", html, html_len);
-        log_info("/search invalid class, 400 returned");
-        return html_len;
-    }
-
-    /* ---- 校验 keyword ---- */
-    if (!validate_keyword(keyword_buf)) {
-        *status_code = 400;
-        generate_error_page_html(400, "Bad Request",
-                                 "关键字格式错误或包含非法字符。",
-                                 html, sizeof(html));
-        html_len = (int)strlen(html);
-        *body_bytes = html_len;
-        send_response(client_fd, 400, "Bad Request",
-                      "text/html; charset=utf-8", html, html_len);
-        log_info("/search invalid keyword, 400 returned");
-        return html_len;
-    }
-
-    /* ---- 查询数据文件 ---- */
+    /* ---- 解析查询参数（class 和 keyword 均为可选） ---- */
     {
-        char table_rows[MAX_RESULT_HTML];
-        int  match_count = 0;
+        int has_class   = 0;
+        int has_keyword = 0;
 
-        if (query_records(class_buf, keyword_buf,
-                          table_rows, sizeof(table_rows),
-                          &match_count) != 0) {
-            /* 数据文件不存在 → 404 */
-            *status_code = 404;
-            generate_error_page_html(404, "Not Found",
-                                     "班级数据不存在",
-                                     html, sizeof(html));
+        if (parse_query_string(query_str,
+                               class_buf, sizeof(class_buf),
+                               keyword_buf, sizeof(keyword_buf)) != 0) {
+            *status_code = 400;
+            generate_error_page_html(400, "Bad Request",
+                         "参数格式错误。请提供 class 或 keyword 参数。",
+                         html, sizeof(html));
             html_len = (int)strlen(html);
             *body_bytes = html_len;
-            send_response(client_fd, 404, "Not Found",
+            send_response(client_fd, 400, "Bad Request",
                           "text/html; charset=utf-8", html, html_len);
-            log_info("/search data file not found, 404 returned");
+            log_info("/search parse failed, 400 returned");
             return html_len;
         }
 
-        /* 生成结果页面 */
-        *status_code = 200;
-        generate_result_page_html(class_buf, keyword_buf, table_rows,
-                                  match_count, html, sizeof(html));
-        html_len = (int)strlen(html);
-        *body_bytes = html_len;
-        send_response(client_fd, 200, "OK",
-                      "text/html; charset=utf-8", html, html_len);
+        has_class   = (class_buf[0] != '\0');
+        has_keyword = (keyword_buf[0] != '\0');
 
-        {
-            char log_msg[256];
-            snprintf(log_msg, sizeof(log_msg),
-                     "/search query: class=%s keyword=%s -> %d matches",
-                     class_buf, keyword_buf, match_count);
-            log_info(log_msg);
+        /* 校验 class（如果提供） */
+        if (has_class && !validate_class(class_buf)) {
+            *status_code = 400;
+            generate_error_page_html(400, "Bad Request",
+                         "班级格式错误",
+                         html, sizeof(html));
+            html_len = (int)strlen(html);
+            *body_bytes = html_len;
+            send_response(client_fd, 400, "Bad Request",
+                          "text/html; charset=utf-8", html, html_len);
+            log_info("/search invalid class, 400 returned");
+            return html_len;
         }
-        return html_len;
+
+        /* 校验 keyword（如果提供） */
+        if (has_keyword && !validate_keyword(keyword_buf)) {
+            *status_code = 400;
+            generate_error_page_html(400, "Bad Request",
+                         "关键字格式错误或包含非法字符。",
+                         html, sizeof(html));
+            html_len = (int)strlen(html);
+            *body_bytes = html_len;
+            send_response(client_fd, 400, "Bad Request",
+                          "text/html; charset=utf-8", html, html_len);
+            log_info("/search invalid keyword, 400 returned");
+            return html_len;
+        }
+
+        /* ---- 四种查询模式 ---- */
+        {
+            char table_rows[MAX_RESULT_HTML];
+            int  match_count = 0;
+            int  query_mode;  /* 0=both, 1=class-only, 2=keyword-only */
+            int  has_data = 1;
+
+            if (has_class && has_keyword) {
+                /* 模式 0：班级 + 关键词 */
+                query_mode = 0;
+                if (query_records(class_buf, keyword_buf,
+                                  table_rows, sizeof(table_rows),
+                                  &match_count) != 0) {
+                    has_data = 0;
+                }
+            } else if (has_class && !has_keyword) {
+                /* 模式 1：仅班级 → 显示该班所有人 */
+                query_mode = 1;
+                if (query_records(class_buf, "",
+                                  table_rows, sizeof(table_rows),
+                                  &match_count) != 0) {
+                    has_data = 0;
+                }
+            } else {
+                /* 模式 2：仅关键词 → 跨班级搜索 */
+                query_mode = 2;
+                query_all_classes(keyword_buf,
+                                  table_rows, sizeof(table_rows),
+                                  &match_count);
+                /* query_all_classes always returns 0 */
+            }
+
+            if (!has_data) {
+                *status_code = 404;
+                generate_error_page_html(404, "Not Found",
+                             "班级数据不存在",
+                             html, sizeof(html));
+                html_len = (int)strlen(html);
+                *body_bytes = html_len;
+                send_response(client_fd, 404, "Not Found",
+                              "text/html; charset=utf-8", html, html_len);
+                log_info("/search data file not found, 404 returned");
+                return html_len;
+            }
+
+            /* 生成结果页面 */
+            *status_code = 200;
+            generate_result_page_html(class_buf, keyword_buf,
+                                      table_rows, match_count,
+                                      query_mode,
+                                      html, sizeof(html));
+            html_len = (int)strlen(html);
+            *body_bytes = html_len;
+            send_response(client_fd, 200, "OK",
+                          "text/html; charset=utf-8", html, html_len);
+
+            {
+                char log_msg[256];
+                snprintf(log_msg, sizeof(log_msg),
+                         "/search query: class=%s keyword=%s -> %d matches",
+                         has_class ? class_buf : "*",
+                         has_keyword ? keyword_buf : "*",
+                         match_count);
+                log_info(log_msg);
+            }
+            return html_len;
+        }
     }
 }
