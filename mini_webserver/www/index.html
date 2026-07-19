@@ -2,39 +2,61 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <title>MiniWeb V1.2 — Blog</title>
+    <title>MiniWeb V1.3 — 学生信息查询系统</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
 </head>
 <body>
     <header>
         <h1>Hello, HTTP!</h1>
-        <p class="subtitle">Welcome to MiniWeb V1.2 — Epoll Static File Server (W3D2)</p>
+        <p class="subtitle">Welcome to MiniWeb V1.3 — Epoll HTTP Server (W3D3)</p>
     </header>
     <main>
         <article>
-            <h2>W3D2 实训笔记</h2>
-            <p>今天完成了静态文件服务器的构建。核心工作：</p>
+            <h2>W3D3 新增功能：学生信息查询</h2>
+            <p>在 V1.2 静态文件服务的基础上，增加了动态 GET/POST 查询：</p>
             <ul>
-                <li><strong>URL 路径映射</strong>：将请求路径安全映射到 <code>www/</code> 目录</li>
-                <li><strong>MIME 类型识别</strong>：根据文件扩展名返回正确的 Content-Type</li>
-                <li><strong>目录穿越防护</strong>：使用 <code>realpath()</code> 限定 document root</li>
-                <li><strong>分块文件发送</strong>：使用 8KB 固定缓冲区 + <code>send_all()</code></li>
+                <li><strong>GET /search</strong>：返回搜索表单，浏览器可直接使用</li>
+                <li><strong>GET /search?class=2011&keyword=男</strong>：URL 查询参数</li>
+                <li><strong>POST /search</strong>：解析 application/x-www-form-urlencoded 请求体</li>
+                <li><strong>URL 解码</strong>：支持 %XX 和 + 编码的中文查询</li>
+                <li><strong>参数校验</strong>：class 4 位数字 + keyword 安全过滤</li>
+                <li><strong>HTML 转义</strong>：输出前转义 &lt; &gt; &amp; &quot; 防注入</li>
             </ul>
+            <p style="text-align: center; margin-top: 20px;">
+                <a href="/search" style="display: inline-block; background: #6f95c9; color: white;
+                   padding: 12px 32px; border-radius: 8px; text-decoration: none;
+                   font-size: 18px; font-weight: bold;">进入查询页面</a>
+            </p>
         </article>
         <article>
-            <h2>技术栈</h2>
-            <ul>
-                <li>I/O 多路复用：epoll (LT + EPOLLIN)</li>
-                <li>HTTP 协议：HTTP/1.1 请求解析 + 响应构造</li>
-                <li>文件服务：stat() + open() + read() 分块发送</li>
-                <li>安全机制：路径规范化 + realpath() 边界校验</li>
-                <li>日志系统：双文件日志（system.log + access.log）</li>
-            </ul>
+            <h2>版本演进</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background: #6f95c9; color: white;">
+                    <th style="padding: 8px; border: 1px solid #ddd;">版本</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">内容</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">新增</th>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">V1.1</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">HTTP 请求解析 + 路由 + 日志</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">epoll + HTTP 协议</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">V1.2</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">静态文件服务 + MIME + 安全</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">路径映射 + realpath()</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">V1.3</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">动态查询 GET + POST</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">URL 解码 + 参数校验 + 数据查询</td>
+                </tr>
+            </table>
         </article>
     </main>
     <footer>
-        <p>Powered by MiniWeb V1.2 — Built with epoll</p>
+        <p>Powered by MiniWeb V1.3 — Built with epoll | <a href="/search">查询页面</a></p>
     </footer>
     <script src="/js/app.js"></script>
 </body>

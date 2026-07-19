@@ -1,4 +1,4 @@
-/* MiniWeb V1.2 — Blog Stylesheet */
+/* MiniWeb V1.3 — Blog Stylesheet */
 
 * {
     margin: 0;
@@ -72,4 +72,28 @@ footer {
     padding: 20px;
     color: #888;
     font-size: 0.9em;
+}
+
+footer a {
+    color: #6f95c9;
+    text-decoration: none;
+}
+
+main article table th {
+    text-align: left;
+}
+
+main article .cta-button {
+    display: inline-block;
+    background: #6f95c9;
+    color: white;
+    padding: 12px 32px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+main article .cta-button:hover {
+    background: #5a7fb5;
 }
