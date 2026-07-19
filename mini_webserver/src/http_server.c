@@ -1,8 +1,8 @@
 /*
- * W3D2 http_server.c — 基于 epoll 的 HTTP 静态文件服务器 V1.2
+ * W3D3 http_server.c — 基于 epoll 的 HTTP 服务器 V1.3
  *
  * 功能：
- *   结合 W2D5 的 epoll 事件循环 + W3D2 的静态文件服务：
+ *   结合 epoll 事件循环 + 静态文件服务 + 动态查询处理：
  *   1. socket() / bind() / listen() / epoll_create1()  启动监听
  *   2. epoll_ctl(ADD listen_fd)                         注册监听套接字
  *   3. epoll_wait()                                     等待就绪事件
@@ -10,12 +10,13 @@
  *   5. recv() → 追加到客户端接收缓冲区                    读取请求
  *   6. find_header_end() → 判断请求头是否完整             协议解析
  *   7. parse_http_request() → 提取 method/path/headers/body
- *   8. 路由分发（V1.2）：
- *        GET *       → serve_static_file() 静态文件服务
- *        POST /echo  → 200 OK + 回显请求体（V1.1 兼容）
- *        其他方法     → 405 Method Not Allowed
- *   9. 静态文件服务：路径规范化 → realpath() 安全校验 →
- *      stat() 元数据 → MIME 映射 → 分块 read()+send_all()
+ *   8. 路由分发（V1.3）：
+ *        GET /search       → 搜索表单 或 查询（含查询参数）
+ *        POST /search       → 解析表单请求体并查询
+ *        GET *              → serve_static_file() 静态文件服务
+ *        POST /echo         → 200 OK + 回显请求体（V1.1 兼容）
+ *        其他方法            → 405 Method Not Allowed
+ *   9. 动态查询：URL 解码 → 参数校验 → 数据文件查询 → HTML 生成
  *  10. access_log() + log_info()                         记录日志
  *  11. epoll_ctl(DEL) + close()                          清理连接
  *
@@ -28,6 +29,7 @@
 #include "http_server.h"
 #include "http_parser.h"
 #include "static_handler.h"
+#include "query_handler.h"
 #include "log.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -145,7 +147,7 @@ static int find_client_by_fd(client_info_t *clients, int fd)
 
 /* ===== http_server_run() ==============================================
  *
- * 主函数：启动基于 epoll 的 HTTP 服务器 (W3D2 V1.2)
+ * 主函数：启动基于 epoll 的 HTTP 服务器 (W3D3 V1.3)
  *
  * 整体流程：
  *   socket → bind → listen → epoll_create1 →
@@ -184,11 +186,11 @@ int http_server_run(int port, int max_requests)
         clients[i].fd = -1;
     }
 
-    printf("=== W3D2 HTTP Server V1.2 (epoll + static files) ===\n");
+    printf("=== W3D3 HTTP Server V1.3 (epoll + search) ===\n");
     printf("[SERVER] Max requests: %d\n", max_requests);
 
     /* 系统日志 */
-    log_info("HTTP Server V1.2 starting...");
+    log_info("HTTP Server V1.3 starting...");
 
     /* ===== socket() ===== */
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -263,7 +265,7 @@ int http_server_run(int port, int max_requests)
     printf("[SERVER] listen_fd (fd=%d) registered to epoll (epfd=%d)\n",
            listen_fd, epfd);
 
-    printf("\n[SERVER] HTTP Server V1.2 is running on http://127.0.0.1:%d/\n", port);
+    printf("\n[SERVER] HTTP Server V1.3 is running on http://127.0.0.1:%d/\n", port);
     printf("[SERVER] Process up to %d requests, then exit normally.\n\n", max_requests);
 
     /* ===== 主事件循环 ===== */
@@ -417,18 +419,130 @@ int http_server_run(int port, int max_requests)
 
                         } else if (strcmp(req.method, "GET") == 0) {
                             /*
-                             * ===== GET 请求 → 静态文件服务 (V1.2) =====
-                             * 所有 GET 请求交由 serve_static_file() 处理：
-                             *   - 路径规范化 + document root 安全校验
-                             *   - stat() 获取文件元数据
-                             *   - 扩展名 → MIME 映射
-                             *   - 分块 read() + send_all() 发送
-                             *   - 自动返回 200/403/404/500
+                             * ===== GET 请求 → 路由分发 (V1.3) =====
+                             * 检查 /search 路由（动态查询），
+                             * 其余路径交由 serve_static_file() 静态文件服务处理。
                              */
-                            printf("[SERVER] GET %s — routing to static file handler\n",
-                                   req.path);
-                            serve_static_file(client_fd, req.path,
-                                             &status_code, &mime_type, &body_bytes);
+
+                            /* 检查是否为 /search 路径（含可选查询参数） */
+                            if (strncmp(req.path, "/search", 7) == 0 &&
+                                (req.path[7] == '\0' || req.path[7] == '?')) {
+                                /*
+                                 * ===== GET /search → 动态查询 (V1.3) =====
+                                 * - 无参数：返回搜索表单
+                                 * - 有参数：解析查询字符串并查询
+                                 */
+                                const char *query_str = "";
+                                if (req.path[7] == '?') {
+                                    query_str = req.path + 8;  /* 跳过 "/search?" */
+                                }
+
+                                printf("[SERVER] GET /search (query=%s) — routing to query handler\n",
+                                       query_str);
+                                handle_search_request(client_fd, "GET", query_str,
+                                                      &status_code, &mime_type, &body_bytes);
+
+                            } else {
+                                /*
+                                 * ===== 其他 GET → 静态文件服务 (V1.2) =====
+                                 */
+                                printf("[SERVER] GET %s — routing to static file handler\n",
+                                       req.path);
+                                serve_static_file(client_fd, req.path,
+                                                 &status_code, &mime_type, &body_bytes);
+                            }
+
+                        } else if (strcmp(req.method, "POST") == 0 &&
+                                   strncmp(req.path, "/search", 7) == 0 &&
+                                   (req.path[7] == '\0' || req.path[7] == '?')) {
+                            /*
+                             * ===== POST /search → 动态查询 (V1.3) =====
+                             * 检查 Content-Type 和 Content-Length，
+                             * 解析请求体中的表单数据并查询。
+                             */
+                            const char *content_type = NULL;
+                            int i;
+
+                            /* 查找 Content-Type 请求头 */
+                            for (i = 0; i < req.header_count; i++) {
+                                if (strcasecmp(req.headers[i].key, "Content-Type") == 0) {
+                                    content_type = req.headers[i].value;
+                                    break;
+                                }
+                            }
+
+                            /* 检查 Content-Type */
+                            if (content_type == NULL ||
+                                strstr(content_type, "application/x-www-form-urlencoded") == NULL) {
+                                /* 不支持的 Content-Type → 415 */
+                                const char *body = "<!DOCTYPE html>\r\n<html>\r\n"
+                                                   "<head><meta charset=\"utf-8\"><title>415</title></head>\r\n"
+                                                   "<body><h1>415 Unsupported Media Type</h1>"
+                                                   "<p>仅支持 application/x-www-form-urlencoded</p>"
+                                                   "</body>\r\n</html>";
+                                char resp[1024];
+                                status_code = 415;
+                                mime_type   = "text/html; charset=utf-8";
+                                body_bytes  = (int)strlen(body);
+                                snprintf(resp, sizeof(resp),
+                                         "HTTP/1.1 415 Unsupported Media Type\r\n"
+                                         "Content-Type: text/html; charset=utf-8\r\n"
+                                         "Content-Length: %d\r\n"
+                                         "Connection: close\r\n"
+                                         "\r\n"
+                                         "%s", body_bytes, body);
+                                send(client_fd, resp, strlen(resp), 0);
+                                log_warning("/search POST missing Content-Type, 415 returned");
+
+                            } else if (req.content_length > MAX_BODY_SIZE) {
+                                /* 请求体过大 → 413 */
+                                const char *body = "<!DOCTYPE html>\r\n<html>\r\n"
+                                                   "<head><meta charset=\"utf-8\"><title>413</title></head>\r\n"
+                                                   "<body><h1>413 Payload Too Large</h1>"
+                                                   "<p>请求体不能超过 4096 字节</p>"
+                                                   "</body>\r\n</html>";
+                                char resp[1024];
+                                status_code = 413;
+                                mime_type   = "text/html; charset=utf-8";
+                                body_bytes  = (int)strlen(body);
+                                snprintf(resp, sizeof(resp),
+                                         "HTTP/1.1 413 Payload Too Large\r\n"
+                                         "Content-Type: text/html; charset=utf-8\r\n"
+                                         "Content-Length: %d\r\n"
+                                         "Connection: close\r\n"
+                                         "\r\n"
+                                         "%s", body_bytes, body);
+                                send(client_fd, resp, strlen(resp), 0);
+                                log_warning("/search POST body too large, 413 returned");
+
+                            } else if (req.content_length <= 0) {
+                                /* 缺少 Content-Length → 400 */
+                                const char *body = "<!DOCTYPE html>\r\n<html>\r\n"
+                                                   "<head><meta charset=\"utf-8\"><title>400</title></head>\r\n"
+                                                   "<body><h1>400 Bad Request</h1>"
+                                                   "<p>POST 请求缺少 Content-Length</p>"
+                                                   "</body>\r\n</html>";
+                                char resp[1024];
+                                status_code = 400;
+                                mime_type   = "text/html; charset=utf-8";
+                                body_bytes  = (int)strlen(body);
+                                snprintf(resp, sizeof(resp),
+                                         "HTTP/1.1 400 Bad Request\r\n"
+                                         "Content-Type: text/html; charset=utf-8\r\n"
+                                         "Content-Length: %d\r\n"
+                                         "Connection: close\r\n"
+                                         "\r\n"
+                                         "%s", body_bytes, body);
+                                send(client_fd, resp, strlen(resp), 0);
+                                log_warning("/search POST missing Content-Length, 400 returned");
+
+                            } else {
+                                /* 请求体完整 → 处理查询 */
+                                printf("[SERVER] POST /search (body=%s) — routing to query handler\n",
+                                       req.body);
+                                handle_search_request(client_fd, "POST", req.body,
+                                                      &status_code, &mime_type, &body_bytes);
+                            }
 
                         } else if (strcmp(req.method, "POST") == 0 &&
                                    strcmp(req.path, "/echo") == 0) {
@@ -474,26 +588,36 @@ int http_server_run(int port, int max_requests)
                         } else {
                             /*
                              * ===== 其他方法/POST 非 /echo 路径 → 405 Method Not Allowed =====
-                             * 指导书要求：GET 进入静态资源处理，其他方法返回 405 和 Allow: GET
-                             * POST /echo 作为 V1.1 兼容特例在上面单独处理
+                             * 指导书要求：GET 进入静态资源处理，其他方法返回 405。
+                             * /search 路径允许 GET 和 POST。
                              */
                             const char *body = "<!DOCTYPE html>\r\n<html>\r\n"
                                                "<head><meta charset=\"utf-8\"><title>405</title></head>\r\n"
                                                "<body><h1>405 Method Not Allowed</h1></body>\r\n</html>";
                             char resp[1024];
+                            const char *allow_methods;
 
                             status_code = 405;
                             mime_type   = "text/html; charset=utf-8";
                             body_bytes  = (int)strlen(body);
+
+                            /* /search 路径允许 GET 和 POST，其他路径仅 GET */
+                            if (strncmp(req.path, "/search", 7) == 0 &&
+                                (req.path[7] == '\0' || req.path[7] == '?')) {
+                                allow_methods = "GET, POST";
+                            } else {
+                                allow_methods = "GET";
+                            }
+
                             snprintf(resp, sizeof(resp),
                                      "HTTP/1.1 405 Method Not Allowed\r\n"
                                      "Content-Type: text/html; charset=utf-8\r\n"
                                      "Content-Length: %d\r\n"
                                      "Connection: close\r\n"
-                                     "Allow: GET\r\n"
+                                     "Allow: %s\r\n"
                                      "\r\n"
                                      "%s",
-                                     body_bytes, body);
+                                     body_bytes, allow_methods, body);
                             send(client_fd, resp, strlen(resp), 0);
                         }
 

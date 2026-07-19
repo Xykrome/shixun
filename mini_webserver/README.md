@@ -79,6 +79,7 @@ listen_fd → accept() → client_fd → task queue → worker → handler → c
 | Day10 | `make test9` | epoll Webserver V1.0 |
 | Day11 | `make test10` | HTTP Server V1.1 (W3D1) |
 | Day12 | `make test11` | HTTP Static File Server V1.2 (W3D2) |
+| Day13 | `make test12` | HTTP Search Server V1.3 (W3D3) |
 | 全部 | `make test-all` | 运行所有测试 |
 
 ## V1.0 架构
@@ -126,4 +127,30 @@ epoll_wait → recv → 追加缓冲区 → 判断完整性(\r\n\r\n + Content-L
 - Content-Type 来自 MIME 映射表，Content-Length 来自 `st.st_size`（非 strlen）
 - 访问日志增强：增加 MIME 类型字段；系统日志增加请求耗时（ms）
 - 保留 V1.1 兼容：POST /echo 动态回显路由
+- 请求计数达到 max_requests 后正常退出
+
+## V1.3 架构 (W3D3)
+
+```
+epoll_wait → recv → 追加缓冲区 → 判断完整性(\r\n\r\n + Content-Length)
+→ HTTP 解析 → route_request()
+├─ GET /search        → handle_search_request() → 搜索表单 HTML
+├─ GET /search?class.. → parse_query_string() → url_decode()
+│                        → validate_class() / validate_keyword()
+│                        → query_records(data/<class>.txt)
+│                        → generate_result_page_html() → send_response()
+├─ POST /search       → 检查 Content-Type(→415) + Content-Length(→413)
+│                        → 解析请求体 → 同 GET 查询流程
+├─ GET *              → serve_static_file() (V1.2)
+└─ 其他               → 405 (Allow 头动态适配 /search 路径)
+→ access_log(含MIME) + log_info(含耗时) → epoll_ctl(DEL) + close(client_fd)
+```
+
+- 纯 epoll + 单线程事件循环（LT 模式 + EPOLLIN）
+- 动态查询：URL 解码 + 参数校验 + 数据文件 grep + HTML 转义防注入
+- 数据文件：`data/<class>.txt`，制表符分隔，`strstr()` 匹配
+- GET 参数在 URL 查询字符串，POST 参数在请求体
+- 8 种状态码：200/400/403/404/405/413/415/500
+- 错误页面中文提示："班级格式错误""班级数据不存在"等
+- 保留 V1.2 静态文件服务和 V1.1 POST /echo 兼容
 - 请求计数达到 max_requests 后正常退出

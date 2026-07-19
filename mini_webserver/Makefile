@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Iinclude
 LDFLAGS = -lpthread
-SRCS = src/main.c src/config.c src/log.c src/http_response.c src/user_store.c src/user_index.c src/process_server.c src/request_handler.c src/thread_server.c src/tcp_server.c src/tcp_fork_server.c src/thread_pool.c src/tcp_pool_server.c src/epoll_server.c src/http_parser.c src/http_server.c src/static_handler.c
+SRCS = src/main.c src/config.c src/log.c src/http_response.c src/user_store.c src/user_index.c src/process_server.c src/request_handler.c src/thread_server.c src/tcp_server.c src/tcp_fork_server.c src/thread_pool.c src/tcp_pool_server.c src/epoll_server.c src/http_parser.c src/http_server.c src/static_handler.c src/query_handler.c
 OBJS = $(SRCS:.c=.o)
 TARGET = mini_web_server
 
@@ -63,6 +63,10 @@ test10: $(TARGET)
 test11: $(TARGET)
 	./tests/test_day12.sh
 
+# Day13 测试（W3D3 — HTTP Search Server V1.3）
+test12: $(TARGET)
+	./tests/test_day13.sh
+
 # 运行所有测试
 test-all: $(TARGET)
 	./tests/test_day01.sh
@@ -74,4 +78,4 @@ test-all: $(TARGET)
 	./tests/test_day07.sh
 	./tests/test_day08.sh
 
-.PHONY: all clean run test test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test-all
+.PHONY: all clean run test test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-all
