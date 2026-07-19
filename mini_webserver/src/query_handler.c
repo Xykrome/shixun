@@ -384,158 +384,235 @@ int query_records(const char *class_str, const char *keyword,
     return 0;
 }
 
-/* ===== HTML 页面生成 ================================================== */
+/* ===== HTML 页面生成 (UESTC 风格) ====================================== */
 
-void generate_search_form_html(char *html, int html_size)
+/*
+ * 生成 /search 页面的公共头部（含 CSS）。
+ * 写入 html 缓冲区，返回已写入的字节数。
+ */
+static int write_page_head(char *html, int html_size)
 {
-    snprintf(html, html_size,
+    return snprintf(html, html_size,
         "<!DOCTYPE html>\r\n"
         "<html lang=\"zh-CN\">\r\n"
         "<head>\r\n"
-        "<meta charset=\"utf-8\">\r\n"
-        "<title>MiniWeb V1.3 — 学生信息查询</title>\r\n"
+        "<meta charset=\"UTF-8\">\r\n"
+        "<title>学生信息查询</title>\r\n"
         "<style>\r\n"
-        "* { margin: 0; padding: 0; box-sizing: border-box; }\r\n"
-        "body { font-family: \"Microsoft YaHei\", sans-serif; "
-        "background: #f0f4f8; min-height: 100vh; display: flex; "
-        "align-items: center; justify-content: center; }\r\n"
-        ".search-box { width: 550px; height: 260px; margin: 50px auto; "
-        "background: #6f95c9; padding: 40px 60px; border-radius: 4px; }\r\n"
-        ".row { margin-bottom: 24px; display: flex; align-items: center; }\r\n"
-        ".row label { font-size: 18px; color: white; width: 90px; text-align: right; "
-        "margin-right: 12px; }\r\n"
-        ".row input { width: 140px; height: 32px; border: none; padding: 0 8px; "
-        "font-size: 14px; }\r\n"
-        ".btn-row { text-align: center; margin-top: 30px; }\r\n"
-        ".btn-row button { width: 90px; height: 40px; background: transparent; "
-        "border: 2px solid white; border-radius: 8px; color: white; font-size: 20px; "
-        "cursor: pointer; }\r\n"
-        ".btn-row button:hover { background: rgba(255,255,255,0.2); }\r\n"
+        "*{margin:0;padding:0;box-sizing:border-box;}\r\n"
+        "body{font-family:\"Microsoft YaHei\",sans-serif;"
+        "background:#f5f6f8;color:#1b1f27;}\r\n"
+        ".header{background:white;border-bottom:1px solid #e5e7eb;}\r\n"
+        ".header-inner{width:1100px;margin:auto;height:90px;"
+        "display:flex;align-items:center;justify-content:space-between;}\r\n"
+        ".logo-box{display:flex;align-items:center;gap:15px;}\r\n"
+        ".logo-box img{height:50px;}\r\n"
+        ".logo-box span{color:#2f6db5;font-weight:700;font-size:14px;}\r\n"
+        "nav{display:flex;gap:30px;}\r\n"
+        "nav a{text-decoration:none;color:#333;font-size:14px;}\r\n"
+        "nav a:hover{color:#2f6db5;}\r\n"
+        ".container{width:900px;margin:50px auto;}\r\n"
+        ".sub-title{color:#2f6db5;font-size:13px;font-weight:700;margin-bottom:10px;}\r\n"
+        "h1{font-size:72px;font-weight:800;margin-bottom:20px;}\r\n"
+        ".version{color:#6b7280;font-size:30px;margin-bottom:40px;}\r\n"
+        "hr{border:none;border-top:1px solid #ddd;margin:35px 0;}\r\n"
+        ".form-row{display:flex;align-items:flex-end;gap:16px;}\r\n"
+        ".field{display:flex;flex-direction:column;}\r\n"
+        ".field label{margin-bottom:8px;font-size:13px;color:#555;}\r\n"
+        ".field input{width:160px;height:46px;border:1px solid #cfd4dc;"
+        "border-radius:4px;padding:0 12px;font-size:15px;}\r\n"
+        ".keyword input{width:350px;}\r\n"
+        ".btn-get,.btn-post{height:46px;padding:0 24px;border-radius:4px;"
+        "cursor:pointer;font-size:15px;font-weight:600;}\r\n"
+        ".btn-get{background:#2f6db5;color:white;border:none;}\r\n"
+        ".btn-get:hover{background:#245b9c;}\r\n"
+        ".btn-post{background:white;color:#222;border:1px solid #333;}\r\n"
+        ".btn-post:hover{background:#f0f0f0;}\r\n"
+        ".result-tag{color:#2f6db5;font-size:13px;font-weight:700;margin-bottom:10px;}\r\n"
+        "h2{font-size:52px;margin-bottom:20px;}\r\n"
+        ".result-info{color:#6b7280;margin-bottom:30px;}\r\n"
+        "table{width:100%%;border-collapse:collapse;}\r\n"
+        "thead{background:#121722;color:white;}\r\n"
+        "thead th{text-align:left;padding:18px;}\r\n"
+        "tbody td{padding:18px;border-bottom:1px solid #e5e7eb;background:white;}\r\n"
+        "tbody tr:hover td{background:#f8fafc;}\r\n"
+        ".no-result{color:red;font-size:20px;padding:40px 0;}\r\n"
+        ".error-title{color:#cc0000;font-size:28px;margin-bottom:20px;}\r\n"
+        ".error-msg{color:#666;font-size:18px;margin-bottom:20px;}\r\n"
         "</style>\r\n"
         "</head>\r\n"
-        "<body>\r\n"
-        "<div class=\"search-box\">\r\n"
-        "<form action=\"/search\" method=\"GET\" accept-charset=\"UTF-8\">\r\n"
-        "<div class=\"row\">"
-        "<label>查询班级：</label>"
-        "<input name=\"class\" type=\"text\" placeholder=\"例如 2011\" maxlength=\"4\">"
+        "<body>\r\n");
+}
+
+/*
+ * 生成公共 header（logo + 导航）。
+ */
+static int write_header(char *html, int html_size)
+{
+    return snprintf(html, html_size,
+        "<header class=\"header\">\r\n"
+        "<div class=\"header-inner\">\r\n"
+        "<div class=\"logo-box\">\r\n"
+        "<img src=\"/img/logo.png\" alt=\"\">\r\n"
+        "<span>DYNAMIC SEARCH</span>\r\n"
         "</div>\r\n"
-        "<div class=\"row\">"
-        "<label>关键字：</label>"
-        "<input name=\"keyword\" type=\"text\" placeholder=\"姓名或性别\" maxlength=\"64\">"
+        "<nav>\r\n"
+        "<a href=\"/\">静态首页</a>\r\n"
+        "<a href=\"/search\">动态查询</a>\r\n"
+        "</nav>\r\n"
         "</div>\r\n"
-        "<div class=\"btn-row\">"
-        "<button type=\"submit\">提交</button>"
+        "</header>\r\n"
+        "<main class=\"container\">\r\n");
+}
+
+/*
+ * 生成搜索表单（含 GET / POST 两个按钮的完整页面）。
+ * 如果已有查询值则预填充输入框。
+ */
+void generate_search_form_html(char *html, int html_size)
+{
+    int pos = 0;
+    pos += write_page_head(html + pos, html_size - pos);
+    pos += write_header(html + pos, html_size - pos);
+    pos += snprintf(html + pos, html_size - pos,
+        "<div class=\"sub-title\">W3D3 &middot; GET AND POST</div>\r\n"
+        "<h1>学生信息查询</h1>\r\n"
+        "<div class=\"version\">mini_webserver V1.3</div>\r\n"
+        "<hr>\r\n"
+        "<section class=\"search-area\">\r\n"
+        "<div class=\"form-row\">\r\n"
+        "<div class=\"field\">\r\n"
+        "<label>班级</label>\r\n"
+        "<input type=\"text\" name=\"class\" id=\"class-inp\""
+        " placeholder=\"例如 2011\" maxlength=\"4\">\r\n"
         "</div>\r\n"
-        "</form>\r\n"
+        "<div class=\"field keyword\">\r\n"
+        "<label>关键词</label>\r\n"
+        "<input type=\"text\" name=\"keyword\" id=\"keyword-inp\""
+        " placeholder=\"姓名或性别\" maxlength=\"64\">\r\n"
         "</div>\r\n"
+        "<button class=\"btn-get\" onclick=\"submitGet()\">GET 查询</button>\r\n"
+        "<button class=\"btn-post\" onclick=\"submitPost()\">POST 查询</button>\r\n"
+        "</div>\r\n"
+        "</section>\r\n"
+        "<script>\r\n"
+        "function submitGet(){"
+        "var c=document.getElementById('class-inp').value;"
+        "var k=document.getElementById('keyword-inp').value;"
+        "window.location.href='/search?class='+encodeURIComponent(c)"
+        "+'&keyword='+encodeURIComponent(k);}\r\n"
+        "function submitPost(){"
+        "var c=document.getElementById('class-inp').value;"
+        "var k=document.getElementById('keyword-inp').value;"
+        "var f=document.createElement('form');"
+        "f.method='POST';f.action='/search';"
+        "f.innerHTML='<input name=class value='+c+'>"
+        "'<input name=keyword value='+k+'>';"
+        "f.style.display='none';document.body.appendChild(f);f.submit();}\r\n"
+        "</script>\r\n"
+        "</main>\r\n"
         "</body>\r\n"
         "</html>");
 }
 
+/*
+ * 生成查询结果页（表单 + 结果合并）。
+ * class_str / keyword 用于预填充表单和显示查询条件。
+ */
 void generate_result_page_html(const char *class_str, const char *keyword,
                                const char *table_rows, int match_count,
                                char *html, int html_size)
 {
     char esc_class[16], esc_keyword[128];
+    int pos = 0;
     html_escape(class_str, esc_class, sizeof(esc_class));
     html_escape(keyword, esc_keyword, sizeof(esc_keyword));
 
-    snprintf(html, html_size,
-        "<!DOCTYPE html>\r\n"
-        "<html lang=\"zh-CN\">\r\n"
-        "<head>\r\n"
-        "<meta charset=\"utf-8\">\r\n"
-        "<title>查询结果</title>\r\n"
-        "<style>\r\n"
-        "* { margin: 0; padding: 0; box-sizing: border-box; }\r\n"
-        "body { font-family: \"Microsoft YaHei\", sans-serif; "
-        "background: #f0f4f8; min-height: 100vh; }\r\n"
-        ".container { width: 800px; margin: 50px auto; "
-        "background: white; padding: 30px; border-radius: 8px; "
-        "box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\r\n"
-        "h1 { text-align: center; color: #333; margin-bottom: 20px; }\r\n"
-        ".info { text-align: center; color: #666; margin-bottom: 20px; }\r\n"
-        ".info span { margin: 0 16px; }\r\n"
-        "table { border-collapse: collapse; width: 100%%; margin: 20px 0; }\r\n"
-        "th { background: #6f95c9; color: white; padding: 10px; "
-        "border: 1px solid #ddd; }\r\n"
-        "td { border: 1px solid #ddd; padding: 10px; text-align: center; }\r\n"
-        ".no-result { text-align: center; color: red; font-size: 20px; "
-        "padding: 40px; }\r\n"
-        ".back-link { text-align: center; margin-top: 20px; }\r\n"
-        ".back-link a { color: #6f95c9; text-decoration: none; font-size: 16px; }\r\n"
-        "</style>\r\n"
-        "</head>\r\n"
-        "<body>\r\n"
-        "<div class=\"container\">\r\n"
-        "<h1>查询结果</h1>\r\n"
-        "<div class=\"info\">"
-        "<span>班级：%s</span>"
-        "<span>关键字：%s</span>"
+    pos += write_page_head(html + pos, html_size - pos);
+    pos += write_header(html + pos, html_size - pos);
+    pos += snprintf(html + pos, html_size - pos,
+        "<div class=\"sub-title\">W3D3 &middot; GET AND POST</div>\r\n"
+        "<h1>学生信息查询</h1>\r\n"
+        "<div class=\"version\">mini_webserver V1.3</div>\r\n"
+        "<hr>\r\n"
+        "<section class=\"search-area\">\r\n"
+        "<div class=\"form-row\">\r\n"
+        "<div class=\"field\">\r\n"
+        "<label>班级</label>\r\n"
+        "<input type=\"text\" name=\"class\" id=\"class-inp\""
+        " value=\"%s\" maxlength=\"4\">\r\n"
         "</div>\r\n"
-        "<hr>\r\n",
-        esc_class, esc_keyword);
+        "<div class=\"field keyword\">\r\n"
+        "<label>关键词</label>\r\n"
+        "<input type=\"text\" name=\"keyword\" id=\"keyword-inp\""
+        " value=\"%s\" maxlength=\"64\">\r\n"
+        "</div>\r\n"
+        "<button class=\"btn-get\" onclick=\"submitGet()\">GET 查询</button>\r\n"
+        "<button class=\"btn-post\" onclick=\"submitPost()\">POST 查询</button>\r\n"
+        "</div>\r\n"
+        "</section>\r\n"
+        "<hr>\r\n"
+        "<section class=\"result\">\r\n"
+        "<div class=\"result-tag\">RESULT</div>\r\n"
+        "<h2>查询结果</h2>\r\n"
+        "<p class=\"result-info\">班级 %s，关键词 %s，共 %d 条记录。</p>\r\n",
+        esc_class, esc_keyword, esc_class, esc_keyword, match_count);
 
-    /* 匹配结果或空结果 */
     if (match_count > 0) {
-        int current = (int)strlen(html);
-        snprintf(html + current, html_size - current,
-            "<table>\r\n"
+        pos += snprintf(html + pos, html_size - pos,
+            "<table>\r\n<thead>\r\n"
             "<tr><th>学号</th><th>姓名</th><th>性别</th></tr>\r\n"
-            "%s"
-            "</table>\r\n",
+            "</thead>\r\n<tbody>\r\n%s</tbody>\r\n</table>\r\n",
             table_rows);
     } else {
-        int current = (int)strlen(html);
-        snprintf(html + current, html_size - current,
+        pos += snprintf(html + pos, html_size - pos,
             "<div class=\"no-result\">未找到符合条件的记录</div>\r\n");
     }
 
-    /* 返回链接 */
-    {
-        int current = (int)strlen(html);
-        snprintf(html + current, html_size - current,
-            "<div class=\"back-link\">"
-            "<a href=\"/search\">返回查询</a>"
-            "</div>\r\n"
-            "</div>\r\n"
-            "</body>\r\n"
-            "</html>");
-    }
+    pos += snprintf(html + pos, html_size - pos,
+        "</section>\r\n"
+        "<script>\r\n"
+        "function submitGet(){"
+        "var c=document.getElementById('class-inp').value;"
+        "var k=document.getElementById('keyword-inp').value;"
+        "window.location.href='/search?class='+encodeURIComponent(c)"
+        "+'&keyword='+encodeURIComponent(k);}\r\n"
+        "function submitPost(){"
+        "var c=document.getElementById('class-inp').value;"
+        "var k=document.getElementById('keyword-inp').value;"
+        "var f=document.createElement('form');"
+        "f.method='POST';f.action='/search';"
+        "f.innerHTML='<input name=class value='+c+'>"
+        "'<input name=keyword value='+k+'>';"
+        "f.style.display='none';document.body.appendChild(f);f.submit();}\r\n"
+        "</script>\r\n"
+        "</main>\r\n"
+        "</body>\r\n"
+        "</html>");
 }
 
+/*
+ * 生成错误页面（UESTC 风格）。
+ */
 void generate_error_page_html(int status_code, const char *title,
                               const char *message,
                               char *html, int html_size)
 {
     char esc_title[128], esc_msg[256];
+    int pos = 0;
     html_escape(title, esc_title, sizeof(esc_title));
     html_escape(message, esc_msg, sizeof(esc_msg));
 
-    snprintf(html, html_size,
-        "<!DOCTYPE html>\r\n"
-        "<html lang=\"zh-CN\">\r\n"
-        "<head>\r\n"
-        "<meta charset=\"utf-8\">\r\n"
-        "<title>%d %s</title>\r\n"
-        "<style>\r\n"
-        "body { font-family: \"Microsoft YaHei\", sans-serif; "
-        "text-align: center; padding: 80px 20px; }\r\n"
-        "h1 { color: #cc0000; font-size: 28px; }\r\n"
-        "p { color: #666; font-size: 18px; margin: 20px 0; }\r\n"
-        "a { color: #6f95c9; }\r\n"
-        "</style>\r\n"
-        "</head>\r\n"
-        "<body>\r\n"
-        "<h1>%d %s</h1>\r\n"
-        "<p>%s</p>\r\n"
+    pos += write_page_head(html + pos, html_size - pos);
+    pos += write_header(html + pos, html_size - pos);
+    pos += snprintf(html + pos, html_size - pos,
+        "<h1 class=\"error-title\">%d %s</h1>\r\n"
+        "<p class=\"error-msg\">%s</p>\r\n"
         "<p><a href=\"/search\">返回查询</a></p>\r\n"
+        "</main>\r\n"
         "</body>\r\n"
         "</html>",
-        status_code, esc_title,
-        status_code, esc_title,
-        esc_msg);
+        status_code, esc_title, esc_msg);
 }
 
 /* ===== 发送 HTTP 响应的内部辅助函数 =================================== */

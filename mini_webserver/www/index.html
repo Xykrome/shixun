@@ -1,63 +1,103 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="utf-8">
-    <title>MiniWeb V1.3 — 学生信息查询系统</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+<meta charset="UTF-8">
+<title>MiniWeb V1.3</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:"Microsoft YaHei",sans-serif;background:#f5f6f8;color:#1b1f27;}
+.header{background:white;border-bottom:1px solid #e5e7eb;}
+.header-inner{width:1100px;margin:auto;height:90px;
+display:flex;align-items:center;justify-content:space-between;}
+.logo-box{display:flex;align-items:center;gap:15px;}
+.logo-box img{height:50px;}
+.logo-box span{color:#2f6db5;font-weight:700;font-size:14px;}
+nav{display:flex;gap:30px;}
+nav a{text-decoration:none;color:#333;font-size:14px;}
+nav a:hover{color:#2f6db5;}
+.container{width:900px;margin:50px auto;}
+.sub-title{color:#2f6db5;font-size:13px;font-weight:700;margin-bottom:10px;}
+h1{font-size:72px;font-weight:800;margin-bottom:20px;}
+.version{color:#6b7280;font-size:30px;margin-bottom:40px;}
+hr{border:none;border-top:1px solid #ddd;margin:35px 0;}
+h2{font-size:32px;margin-bottom:20px;color:#1b1f27;}
+p{line-height:1.8;color:#444;margin-bottom:10px;}
+ul{list-style:disc;padding-left:24px;margin-bottom:20px;}
+li{line-height:1.8;color:#444;}
+.features{display:flex;gap:30px;margin-top:20px;}
+.feature-box{flex:1;background:white;padding:24px;
+border:1px solid #e5e7eb;border-radius:4px;}
+.feature-box h3{font-size:18px;color:#2f6db5;margin-bottom:12px;}
+.feature-box ul{list-style:none;padding-left:0;}
+.feature-box li{font-size:14px;color:#666;padding:4px 0;}
+.search-cta{text-align:center;margin:30px 0;}
+.search-cta a{display:inline-block;background:#2f6db5;color:white;
+padding:14px 40px;border-radius:4px;text-decoration:none;
+font-size:16px;font-weight:600;}
+.search-cta a:hover{background:#245b9c;}
+</style>
 </head>
 <body>
-    <header>
-        <h1>Hello, HTTP!</h1>
-        <p class="subtitle">Welcome to MiniWeb V1.3 — Epoll HTTP Server (W3D3)</p>
-    </header>
-    <main>
-        <article>
-            <h2>W3D3 新增功能：学生信息查询</h2>
-            <p>在 V1.2 静态文件服务的基础上，增加了动态 GET/POST 查询：</p>
-            <ul>
-                <li><strong>GET /search</strong>：返回搜索表单，浏览器可直接使用</li>
-                <li><strong>GET /search?class=2011&keyword=男</strong>：URL 查询参数</li>
-                <li><strong>POST /search</strong>：解析 application/x-www-form-urlencoded 请求体</li>
-                <li><strong>URL 解码</strong>：支持 %XX 和 + 编码的中文查询</li>
-                <li><strong>参数校验</strong>：class 4 位数字 + keyword 安全过滤</li>
-                <li><strong>HTML 转义</strong>：输出前转义 &lt; &gt; &amp; &quot; 防注入</li>
-            </ul>
-            <p style="text-align: center; margin-top: 20px;">
-                <a href="/search" style="display: inline-block; background: #6f95c9; color: white;
-                   padding: 12px 32px; border-radius: 8px; text-decoration: none;
-                   font-size: 18px; font-weight: bold;">进入查询页面</a>
-            </p>
-        </article>
-        <article>
-            <h2>版本演进</h2>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background: #6f95c9; color: white;">
-                    <th style="padding: 8px; border: 1px solid #ddd;">版本</th>
-                    <th style="padding: 8px; border: 1px solid #ddd;">内容</th>
-                    <th style="padding: 8px; border: 1px solid #ddd;">新增</th>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border: 1px solid #ddd;">V1.1</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">HTTP 请求解析 + 路由 + 日志</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">epoll + HTTP 协议</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border: 1px solid #ddd;">V1.2</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">静态文件服务 + MIME + 安全</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">路径映射 + realpath()</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border: 1px solid #ddd;">V1.3</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">动态查询 GET + POST</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">URL 解码 + 参数校验 + 数据查询</td>
-                </tr>
-            </table>
-        </article>
-    </main>
-    <footer>
-        <p>Powered by MiniWeb V1.3 — Built with epoll | <a href="/search">查询页面</a></p>
-    </footer>
-    <script src="/js/app.js"></script>
+
+<header class="header">
+<div class="header-inner">
+<div class="logo-box">
+<img src="/img/logo.png" alt="">
+<span>DYNAMIC SEARCH</span>
+</div>
+<nav>
+<a href="/">静态首页</a>
+<a href="/search">动态查询</a>
+</nav>
+</div>
+</header>
+
+<main class="container">
+
+<div class="sub-title">W3D3 &middot; MINIWEBSERVER</div>
+<h1>Hello, HTTP!</h1>
+<div class="version">mini_webserver V1.3</div>
+<hr>
+
+<h2>项目概述</h2>
+<p>基于 epoll 的轻量级 HTTP 服务器，支持静态文件服务、MIME 类型识别、
+目录穿越防护和动态学生信息查询。</p>
+
+<div class="features">
+<div class="feature-box">
+<h3>静态服务 (V1.2)</h3>
+<ul>
+<li>URL 路径 → www/ 安全映射</li>
+<li>15 种 MIME 类型识别</li>
+<li>realpath() 目录穿越防护</li>
+<li>8KB 分块 read() + send_all()</li>
+</ul>
+</div>
+<div class="feature-box">
+<h3>动态查询 (V1.3)</h3>
+<ul>
+<li>GET /search 搜索表单</li>
+<li>POST /search 表单查询</li>
+<li>URL 解码 + 参数校验</li>
+<li>HTML 转义防 XSS 注入</li>
+</ul>
+</div>
+<div class="feature-box">
+<h3>技术栈</h3>
+<ul>
+<li>epoll (LT + EPOLLIN)</li>
+<li>HTTP/1.1 协议解析</li>
+<li>双文件日志系统</li>
+<li>统一 fd 清理</li>
+</ul>
+</div>
+</div>
+
+<div class="search-cta">
+<a href="/search">进入查询页面</a>
+</div>
+
+</main>
 </body>
 </html>

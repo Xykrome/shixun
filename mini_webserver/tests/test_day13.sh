@@ -68,16 +68,16 @@ echo "--- 测试 3: GET /search — 搜索表单 ---"
 
 RESP=$(curl -s --max-time 5 "http://${HOST}:${PORT}/search" 2>/dev/null)
 
-if echo "$RESP" | grep -q "查询班级"; then
-    pass "GET /search 返回搜索表单（含'查询班级'）"
+if echo "$RESP" | grep -q "学生信息查询"; then
+    pass "GET /search 返回搜索表单（含'学生信息查询'）"
 else
     fail "GET /search 未返回搜索表单"
 fi
 
-if echo "$RESP" | grep -q "<form"; then
-    pass "搜索表单包含 <form> 元素"
+if echo "$RESP" | grep -q "GET 查询"; then
+    pass "搜索表单包含 GET/POST 查询按钮"
 else
-    fail "搜索表单缺少 <form> 元素"
+    fail "搜索表单缺少查询按钮"
 fi
 
 # ======================================================
