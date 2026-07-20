@@ -302,7 +302,7 @@ int query_records(const char *class_str, const char *keyword,
             if (strncmp(resolved_path, data_root, root_len) != 0 ||
                 (resolved_path[root_len] != '/' && resolved_path[root_len] != '\0')) {
                 log_warning("data path traversal attempt blocked");
-                return -1;
+                return -2;  /* -2: 路径越界 → 403 */
             }
         }
     }
@@ -869,45 +869,50 @@ int handle_search_request(int client_fd, const char *method,
         {
             char table_rows[MAX_RESULT_HTML];
             int  match_count = 0;
-            int  query_mode;  /* 0=both, 1=class-only, 2=keyword-only */
-            int  has_data = 1;
+            int  query_mode;   /* 0=both, 1=class-only, 2=keyword-only */
+            int  data_status = 0;  /* 0=ok, -1=404, -2=403 */
 
             if (has_class && has_keyword) {
-                /* 模式 0：班级 + 关键词 */
                 query_mode = 0;
-                if (query_records(class_buf, keyword_buf,
+                data_status = query_records(class_buf, keyword_buf,
                                   table_rows, sizeof(table_rows),
-                                  &match_count) != 0) {
-                    has_data = 0;
-                }
+                                  &match_count);
             } else if (has_class && !has_keyword) {
-                /* 模式 1：仅班级 → 显示该班所有人 */
                 query_mode = 1;
-                if (query_records(class_buf, "",
+                data_status = query_records(class_buf, "",
                                   table_rows, sizeof(table_rows),
-                                  &match_count) != 0) {
-                    has_data = 0;
-                }
+                                  &match_count);
             } else {
-                /* 模式 2：仅关键词 → 跨班级搜索 */
                 query_mode = 2;
                 query_all_classes(keyword_buf,
                                   table_rows, sizeof(table_rows),
                                   &match_count);
-                /* query_all_classes always returns 0 */
             }
 
-            if (!has_data) {
-                *status_code = 404;
-                generate_error_page_html(404, "Not Found",
-                             "班级数据不存在",
-                             html, sizeof(html));
-                html_len = (int)strlen(html);
-                *body_bytes = html_len;
-                send_response(client_fd, 404, "Not Found",
-                              "text/html; charset=utf-8", html, html_len);
-                log_info("/search data file not found, 404 returned");
-                return html_len;
+            if (data_status != 0) {
+                if (data_status == -2) {
+                    *status_code = 403;
+                    generate_error_page_html(403, "Forbidden",
+                                 "拒绝访问：路径越界。",
+                                 html, sizeof(html));
+                    html_len = (int)strlen(html);
+                    *body_bytes = html_len;
+                    send_response(client_fd, 403, "Forbidden",
+                                  "text/html; charset=utf-8", html, html_len);
+                    log_warning("/search data path traversal, 403 returned");
+                    return html_len;
+                } else {
+                    *status_code = 404;
+                    generate_error_page_html(404, "Not Found",
+                                 "班级数据不存在",
+                                 html, sizeof(html));
+                    html_len = (int)strlen(html);
+                    *body_bytes = html_len;
+                    send_response(client_fd, 404, "Not Found",
+                                  "text/html; charset=utf-8", html, html_len);
+                    log_info("/search data file not found, 404 returned");
+                    return html_len;
+                }
             }
 
             /* 生成结果页面 */
