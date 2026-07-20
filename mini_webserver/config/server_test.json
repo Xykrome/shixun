@@ -1,0 +1,1 @@
+{"server":{"host":"127.0.0.1","port":9090,"document_root":"./www"},"logging":{"level":"INFO","file":"./logs/server_test.log"},"routes":[{"method":"GET","path":"/search","handler":"search_get"},{"method":"POST","path":"/search","handler":"search_post"}]}

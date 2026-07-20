@@ -17,7 +17,14 @@
 
 static void print_usage(const char *prog) {
     printf("Usage:\n");
-    printf("  Server modes:\n");
+    printf("  V1.4 config-driven server:\n");
+    printf("    %s <config.json> [max_requests]  - Start config-driven HTTP server (V1.4, W3D4)\n", prog);
+    printf("\n");
+    printf("  V1.x epoll servers:\n");
+    printf("    %s serve-http <max_requests>    - Start epoll HTTP server (V1.3, W3D3)\n", prog);
+    printf("    %s serve-epoll <max_requests>   - Start epoll HTTP server (V1.0, W2D5)\n", prog);
+    printf("\n");
+    printf("  Legacy V0.x servers:\n");
     printf("    %s <config_file>                - Start multi-process server (V0.4)\n", prog);
     printf("    %s --thread <config_file>       - Start multi-threaded server (V0.5)\n", prog);
     printf("    %s --thread <config_file> <N>   - Start multi-threaded server with N workers\n", prog);
@@ -25,8 +32,6 @@ static void print_usage(const char *prog) {
     printf("    %s --fork <config_file>         - Start TCP server, multi-process (V0.7)\n", prog);
     printf("    %s --pool <config_file>         - Start TCP server, thread pool (V0.8)\n", prog);
     printf("    %s --pool <config_file> <N>     - Start TCP server with N worker threads (V0.8)\n", prog);
-    printf("    %s serve-epoll <max_requests>   - Start epoll HTTP server (V1.0, W2D5)\n", prog);
-    printf("    %s serve-http <max_requests>   - Start epoll HTTP server (V1.3, W3D3)\n", prog);
     printf("\n");
     printf("  User management:\n");
     printf("    %s list                         - List all users (linked list)\n", prog);
@@ -171,17 +176,13 @@ cleanup:
      *
      * 命令格式：./mini_web_server serve-http <max_requests>
      *
-     * 支持静态文件服务 + 动态学生信息查询：
-     *   GET/POST /search → 动态查询（URL 解码 + 参数校验 + 数据文件查询）
-     *   GET *             → 静态文件服务
-     *   POST /echo        → 200 OK + 回显请求体
-     *   其他方法           → 405 Method Not Allowed
-     *   系统日志 + 访问日志（含 MIME 类型）分别记录
-     *
-     * 纯 epoll + 单线程事件循环，不依赖 select/多线程/多进程。
+     * 保留 V1.3 行为：路由硬编码为 /search(GET/POST) + /echo(POST)，
+     * 内部转为 V1.4 的 config + route-table 机制运行。
      */
     if (argc >= 3 && strcmp(argv[1], "serve-http") == 0) {
         int max_requests = atoi(argv[2]);
+        server_config_t cfg;
+
         if (max_requests <= 0) {
             fprintf(stderr, "Error: max_requests must be a positive integer\n");
             return 1;
@@ -192,8 +193,29 @@ cleanup:
             fprintf(stderr, "Warning: failed to open log files, continuing without logging\n");
         }
 
-        printf("Starting V1.3 epoll HTTP search server (max %d requests)...\n", max_requests);
-        if (http_server_run(8080, max_requests) < 0) {
+        /* 构建默认配置（模拟 V1.3 行为） */
+        memset(&cfg, 0, sizeof(cfg));
+        strcpy(cfg.host, "0.0.0.0");
+        cfg.port = 8080;
+        strcpy(cfg.document_root, "www");
+        strcpy(cfg.log_level, "INFO");
+        strcpy(cfg.log_file, "logs/system.log");
+
+        /* V1.3 路由 */
+        strcpy(cfg.routes[0].method, "GET");
+        strcpy(cfg.routes[0].path, "/search");
+        strcpy(cfg.routes[0].handler, "search_get");
+        strcpy(cfg.routes[1].method, "POST");
+        strcpy(cfg.routes[1].path, "/search");
+        strcpy(cfg.routes[1].handler, "search_post");
+        strcpy(cfg.routes[2].method, "POST");
+        strcpy(cfg.routes[2].path, "/echo");
+        strcpy(cfg.routes[2].handler, "echo_post");
+        cfg.route_count = 3;
+
+        printf("Starting V1.3 epoll HTTP search server (max %d requests)...\n",
+               max_requests);
+        if (http_server_run(&cfg, max_requests) < 0) {
             log_error("failed to start http server");
             log_close();
             return 1;
@@ -203,32 +225,80 @@ cleanup:
         return 0;
     }
 
-    /* ===== Web服务器模式 =====
+    /* ===== Webserver V1.4 (W3D4): 配置驱动 HTTP 服务器 =====
      *
-     * 五种运行模式（通过命令行参数选择）：
-     *   V0.4 多进程模式：./mini_web_server conf/server.conf
-     *   V0.5 多线程模式：./mini_web_server --thread conf/server.conf [num_workers]
-     *   V0.6 TCP网络模式：./mini_web_server --tcp conf/server.conf
-     *   V0.7 TCP多进程：  ./mini_web_server --fork conf/server.conf
-     *   V0.8 TCP线程池：  ./mini_web_server --pool conf/server.conf [num_workers]
-     *   V1.0 epoll模式：  ./mini_web_server serve-epoll <max_requests>
-     *   V1.1 http模式：   ./mini_web_server serve-http <max_requests> (W3D1)
+     * 命令格式：./mini_web_server <config.json> [max_requests]
      *
-     * V0.4 (process): fork 子进程，每个处理一个请求，通过 waitpid 回收
-     * V0.5 (thread):  pthread 创建 worker 线程，共享请求队列，通过 pthread_join 回收
-     * V0.6 (tcp):     socket/bind/listen/accept，单连接 TCP 服务器
-     * V0.7 (fork):    socket/bind/listen/accept + fork，多进程并发 TCP 服务器
-     * V0.8 (pool):    socket/bind/listen/accept + 线程池，固定 worker 处理连接
-     * V1.0 (epoll):   socket/bind/listen + epoll_create1/epoll_ctl/epoll_wait 事件驱动
-     * V1.1 (http):    epoll + HTTP 解析 + 路由分发 + 日志系统 (W3D1)
+     * 从 JSON 配置文件读取 host/port/document_root/log/routes，
+     * 校验后构建路由表并启动服务器。
      */
+    if (argc >= 2 && strstr(argv[1], ".json") != NULL) {
+        const char *config_path = argv[1];
+        int max_requests = 0;  /* 0 = unlimited */
+        server_config_t cfg;
+        char access_log_path[320];
+
+        if (argc >= 3) {
+            max_requests = atoi(argv[2]);
+            if (max_requests < 0) max_requests = 0;
+        }
+
+        memset(&cfg, 0, sizeof(cfg));
+
+        /* 加载并校验配置 */
+        if (load_json_config(config_path, &cfg) != 0) {
+            fprintf(stderr, "FATAL: failed to load config from %s\n",
+                    config_path);
+            return 1;
+        }
+        print_config(&cfg);
+
+        /* 日志初始化 — 访问日志从系统日志路径自动派生 */
+        {
+            const char *dot = strrchr(cfg.log_file, '.');
+            if (dot) {
+                size_t base_len = (size_t)(dot - cfg.log_file);
+                if (base_len >= sizeof(access_log_path) - 12)
+                    base_len = sizeof(access_log_path) - 12;
+                memcpy(access_log_path, cfg.log_file, base_len);
+                strcpy(access_log_path + base_len, "_access.log");
+            } else {
+                snprintf(access_log_path, sizeof(access_log_path),
+                         "%s_access.log", cfg.log_file);
+            }
+        }
+
+        if (log_init(cfg.log_file, access_log_path) != 0) {
+            fprintf(stderr, "Warning: failed to open log files\n");
+        }
+
+        printf("\n=== W3D4 Config-Driven Server V1.4 ===\n");
+        printf("Config : %s\n", config_path);
+        printf("Host   : %s\n", cfg.host);
+        printf("Port   : %d\n", cfg.port);
+        printf("Root   : %s\n", cfg.document_root);
+        printf("Log    : %s (level=%s)\n", cfg.log_file, cfg.log_level);
+        printf("Routes : %d\n", cfg.route_count);
+        printf("Max req: %d\n\n", max_requests);
+
+        if (http_server_run(&cfg, max_requests) < 0) {
+            log_error("failed to start V1.4 config-driven server");
+            log_close();
+            return 1;
+        }
+
+        log_close();
+        return 0;
+    }
+
+    /* ===== Web服务器模式（V0.x 旧版 INI 配置） ===== */
     {
         int use_threads = 0;
         int use_tcp = 0;
         int use_fork = 0;
         int use_pool = 0;
         const char *config_path;
-        int num_workers = 4;  /* 默认 4 个 worker 线程 */
+        int num_workers = 4;
 
         if (argc >= 3 && strcmp(argv[1], "--thread") == 0) {
             use_threads = 1;
@@ -257,66 +327,63 @@ cleanup:
             return 1;
         }
 
-        server_config_t config;
-        memset(&config, 0, sizeof(config));
+        {
+            server_config_t config;
+            memset(&config, 0, sizeof(config));
 
-        if (load_config(config_path, &config) != 0) {
-            printf("failed to load config\n");
-            return 1;
+            if (load_legacy_config(config_path, &config) != 0) {
+                printf("failed to load config\n");
+                return 1;
+            }
+
+            if (log_init(config.log_path, NULL) != 0) {
+                fprintf(stderr, "failed to open log file\n");
+                return 1;
+            }
+
+            log_info("server config loaded");
+            log_info("document root loaded");
+            print_config(&config);
+
+            if (use_pool) {
+                printf("Starting V0.8 thread-pool TCP server with %d workers...\n", num_workers);
+                if (tcp_pool_server_run(&config, num_workers) < 0) {
+                    log_error("failed to start tcp pool server");
+                    log_close();
+                    return 1;
+                }
+            } else if (use_fork) {
+                printf("Starting V0.7 multi-process TCP server...\n");
+                if (tcp_fork_server_run(&config) < 0) {
+                    log_error("failed to start tcp fork server");
+                    log_close();
+                    return 1;
+                }
+            } else if (use_tcp) {
+                printf("Starting V0.6 TCP server...\n");
+                if (tcp_server_run(&config) < 0) {
+                    log_error("failed to start tcp server");
+                    log_close();
+                    return 1;
+                }
+            } else if (use_threads) {
+                printf("Starting V0.5 multi-threaded server with %d workers...\n", num_workers);
+                if (thread_requests(num_workers) < 0) {
+                    log_error("failed to process requests (thread mode)");
+                    log_close();
+                    return 1;
+                }
+            } else {
+                printf("Starting V0.4 multi-process server...\n");
+                if (process_requests() < 0) {
+                    log_error("failed to process requests (process mode)");
+                    log_close();
+                    return 1;
+                }
+            }
+
+            log_close();
+            return 0;
         }
-
-        if (log_init(config.log_path, NULL) != 0) {
-            fprintf(stderr, "failed to open log file\n");
-            return 1;
-        }
-
-        log_info("server config loaded");
-        log_info("document root loaded");
-        print_config(&config);
-
-        if (use_pool) {
-            /* V0.8 线程池 TCP 网络服务器：固定数量 worker 线程并发处理客户端 */
-            printf("Starting V0.8 thread-pool TCP server with %d workers...\n", num_workers);
-            if (tcp_pool_server_run(&config, num_workers) < 0) {
-                log_error("failed to start tcp pool server");
-                log_close();
-                return 1;
-            }
-        } else if (use_fork) {
-            /* V0.7 多进程 TCP 网络服务器：fork 子进程并发处理多个客户端 */
-            printf("Starting V0.7 multi-process TCP server...\n");
-            if (tcp_fork_server_run(&config) < 0) {
-                log_error("failed to start tcp fork server");
-                log_close();
-                return 1;
-            }
-        } else if (use_tcp) {
-            /* V0.6 TCP 网络服务器：socket/bind/listen/accept 真实 TCP 连接 */
-            printf("Starting V0.6 TCP server...\n");
-            if (tcp_server_run(&config) < 0) {
-                log_error("failed to start tcp server");
-                log_close();
-                return 1;
-            }
-        } else if (use_threads) {
-            /* V0.5 多线程处理：主线程扫描 + worker 线程池处理 */
-            printf("Starting V0.5 multi-threaded server with %d workers...\n", num_workers);
-            if (thread_requests(num_workers) < 0) {
-                log_error("failed to process requests (thread mode)");
-                log_close();
-                return 1;
-            }
-        } else {
-            /* V0.4 多进程处理：父进程 fork 子进程处理每个请求 */
-            printf("Starting V0.4 multi-process server...\n");
-            if (process_requests() < 0) {
-                log_error("failed to process requests (process mode)");
-                log_close();
-                return 1;
-            }
-        }
-
-        log_close();
-        return 0;
     }
 }

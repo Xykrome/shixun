@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Iinclude
 LDFLAGS = -lpthread
-SRCS = src/main.c src/config.c src/log.c src/http_response.c src/user_store.c src/user_index.c src/process_server.c src/request_handler.c src/thread_server.c src/tcp_server.c src/tcp_fork_server.c src/thread_pool.c src/tcp_pool_server.c src/epoll_server.c src/http_parser.c src/http_server.c src/static_handler.c src/query_handler.c
+SRCS = src/main.c src/config.c src/cJSON.c src/log.c src/http_response.c src/user_store.c src/user_index.c src/process_server.c src/request_handler.c src/thread_server.c src/tcp_server.c src/tcp_fork_server.c src/thread_pool.c src/tcp_pool_server.c src/epoll_server.c src/http_parser.c src/http_server.c src/static_handler.c src/query_handler.c src/auth.c src/session.c src/bearer.c
 OBJS = $(SRCS:.c=.o)
 TARGET = mini_web_server
 
@@ -67,6 +67,14 @@ test11: $(TARGET)
 test12: $(TARGET)
 	./tests/test_day13.sh
 
+# Day14 测试（W3D4 — Config-Driven Server V1.4）
+test13: $(TARGET)
+	./tests/test_day14.sh
+
+# Day15 测试（W3D5 — HTTP Basic Auth V1.5）
+test14: $(TARGET)
+	./tests/test_day15.sh
+
 # 运行所有测试
 test-all: $(TARGET)
 	./tests/test_day01.sh
@@ -78,4 +86,4 @@ test-all: $(TARGET)
 	./tests/test_day07.sh
 	./tests/test_day08.sh
 
-.PHONY: all clean run test test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test-all
+.PHONY: all clean run test test2 test3 test4 test5 test6 test7 test8 test9 test10 test11 test12 test13 test14 test-all

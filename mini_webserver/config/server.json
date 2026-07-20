@@ -1,0 +1,37 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8080,
+    "document_root": "./www"
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "./logs/server.log"
+  },
+  "auth": {
+    "basic": {
+      "username": "student",
+      "password": "lab123"
+    }
+  },
+  "session": {
+    "enabled": true,
+    "timeout_sec": 1800
+  },
+  "bearer": {
+    "enabled": true,
+    "timeout_sec": 3600
+  },
+  "routes": [
+    {"method":"GET",  "path":"/search",    "handler":"search_get"},
+    {"method":"POST", "path":"/search",    "handler":"search_post"},
+    {"method":"POST", "path":"/echo",      "handler":"echo_post"},
+    {"method":"GET",  "path":"/secured",   "handler":"secured_get",      "auth":"basic"},
+    {"method":"GET",  "path":"/login",     "handler":"serve_login_page"},
+    {"method":"POST", "path":"/login",     "handler":"session_login"},
+    {"method":"POST", "path":"/logout",    "handler":"session_logout"},
+    {"method":"GET",  "path":"/dashboard", "handler":"session_dashboard","auth":"session"},
+    {"method":"POST", "path":"/token",     "handler":"token_post"},
+    {"method":"GET",  "path":"/api/me",    "handler":"api_me",           "auth":"bearer"}
+  ]
+}

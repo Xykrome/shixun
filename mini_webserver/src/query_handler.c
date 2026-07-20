@@ -588,9 +588,9 @@ void generate_search_form_html(char *html, int html_size)
     pos += write_page_head(html + pos, html_size - pos);
     pos += write_header(html + pos, html_size - pos);
     pos += snprintf(html + pos, html_size - pos,
-        "<div class=\"sub-title\">W3D3 &middot; GET AND POST</div>\r\n"
+        "<div class=\"sub-title\">W3D5 &middot; GET AND POST</div>\r\n"
         "<h1>学生信息查询</h1>\r\n"
-        "<div class=\"version\">mini_webserver V1.3</div>\r\n"
+        "<div class=\"version\">mini_webserver V1.5</div>\r\n"
         "<hr>\r\n"
         "<section class=\"search-area\">\r\n"
         "<div class=\"form-row\">\r\n"
@@ -667,9 +667,9 @@ void generate_result_page_html(const char *class_str, const char *keyword,
     pos += write_page_head(html + pos, html_size - pos);
     pos += write_header(html + pos, html_size - pos);
     pos += snprintf(html + pos, html_size - pos,
-        "<div class=\"sub-title\">W3D3 &middot; GET AND POST</div>\r\n"
+        "<div class=\"sub-title\">W3D5 &middot; GET AND POST</div>\r\n"
         "<h1>学生信息查询</h1>\r\n"
-        "<div class=\"version\">mini_webserver V1.3</div>\r\n"
+        "<div class=\"version\">mini_webserver V1.5</div>\r\n"
         "<hr>\r\n"
         "<section class=\"search-area\">\r\n"
         "<div class=\"form-row\">\r\n"

@@ -1,5 +1,5 @@
 /*
- * W3D2 static_handler.c — 静态文件处理器实现
+ * W3D4 static_handler.c — 静态文件处理器实现 (V1.4)
  *
  * 功能：
  *   1. URL 路径 → 本地文件的安全映射
@@ -7,13 +7,8 @@
  *   3. send_all() 可靠发送（处理 send() 部分发送）
  *   4. serve_static_file() 完整静态文件响应流程
  *
- * 对照 W3D2 知识点：
- *   - 路径规范化：去查询参数、/→/index.html、拒绝 .. 和空字节
- *   - 安全边界：realpath() 验证目标必须在 document root 内
- *   - stat()：st_mode 判断文件类型，st_size 生成 Content-Length
- *   - MIME 映射：文本资源显式 charset=utf-8，二进制资源不加
- *   - 分块发送：8KB 缓冲区 + send_all()，内存与文件大小解耦
- *   - errno 映射：ENOENT→404, EACCES→403, 其他 I/O→500
+ * V1.4 变更：document_root 由 set_document_root() 配置，
+ * 默认 "www"，不再使用硬编码宏。
  */
 
 #include "static_handler.h"
@@ -26,6 +21,22 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+
+/* ---- Configurable document root (V1.4) ---- */
+static char g_document_root[MAX_PATH_LEN] = "www";
+
+void set_document_root(const char *root)
+{
+    if (root && root[0]) {
+        strncpy(g_document_root, root, MAX_PATH_LEN - 1);
+        g_document_root[MAX_PATH_LEN - 1] = '\0';
+    }
+}
+
+const char *get_document_root(void)
+{
+    return g_document_root;
+}
 
 /* ===== MIME 类型映射表 ============================================== */
 
@@ -148,11 +159,11 @@ int normalize_path(const char *url_path, char *file_path, size_t size)
 
     /* ---- 1. 复制 WWW_ROOT 到输出缓冲区 ---- */
     {
-        size_t root_len = strlen(WWW_ROOT);
+        size_t root_len = strlen(g_document_root);
         if (root_len + 1 >= size) {
             return -1;
         }
-        memcpy(file_path, WWW_ROOT, root_len);
+        memcpy(file_path, g_document_root, root_len);
         dst = file_path + root_len;
         remaining = size - root_len;
         *dst = '\0';
@@ -201,7 +212,7 @@ int normalize_path(const char *url_path, char *file_path, size_t size)
     *dst = '\0';
 
     /* 空路径 → /index.html */
-    if (dst == file_path + strlen(WWW_ROOT)) {
+    if (dst == file_path + strlen(g_document_root)) {
         if (remaining > strlen("/index.html")) {
             strcat(file_path, "/index.html");
         } else {
@@ -276,7 +287,7 @@ int serve_static_file(int client_fd, const char *url_path,
     }
 
     /* ---- 2. 获取 document root 的绝对路径 ---- */
-    if (realpath(WWW_ROOT, www_root_abs) == NULL) {
+    if (realpath(g_document_root, www_root_abs) == NULL) {
         /* document root 本身不存在 */
         *status_code = 500;
         *mime_type   = "text/html; charset=utf-8";

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>MiniWeb V1.3</title>
+<title>MiniWeb V1.5</title>
 <link rel="stylesheet" href="/css/style.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -28,6 +28,7 @@ p{line-height:1.8;color:#444;margin-bottom:10px;}
 border:1px solid #e5e7eb;border-radius:4px;}
 .feature-box h3{font-size:18px;color:#2f6db5;margin-bottom:12px;}
 .feature-box p{font-size:14px;color:#666;line-height:1.6;}
+.feature-box code{background:#f0f4f8;padding:1px 6px;border-radius:3px;font-size:13px;}
 .search-cta{text-align:center;margin:30px 0;}
 .search-cta a{display:inline-block;background:#2f6db5;color:white;
 padding:14px 40px;border-radius:4px;text-decoration:none;
@@ -41,38 +42,46 @@ font-size:16px;font-weight:600;}
 <div class="header-inner">
 <div class="logo-box">
 <img src="/img/logo.png" alt="">
-<span>DYNAMIC SEARCH</span>
+<span>CONFIG-DRIVEN SERVER</span>
 </div>
 <nav>
 <a href="/">静态首页</a>
 <a href="/search">动态查询</a>
+<a href="/secured">受保护页</a>
+<a href="/login.html">登录</a>
+<a href="/dashboard">仪表盘</a>
 </nav>
 </div>
 </header>
 
 <main class="container">
 
-<div class="sub-title">W3D3 &middot; MINIWEBSERVER</div>
+<div class="sub-title">W3D5 &middot; CONFIG-DRIVEN &amp; AUTH</div>
 <h1>Hello, HTTP!</h1>
-<div class="version">mini_webserver V1.3</div>
+<div class="version">mini_webserver V1.5</div>
 <hr>
 
 <h2>项目概述</h2>
-<p>基于 epoll 的轻量级 HTTP 服务器，支持静态文件服务、MIME 类型识别、
-目录穿越防护和动态学生信息查询。</p>
+<p>基于 epoll 的配置驱动 HTTP 服务器，支持 JSON 配置文件加载、
+三种认证方案（Basic / Session / Bearer Token）、路由分发、
+静态文件服务和动态学生信息查询。</p>
 
 <div class="features">
 <div class="feature-box">
-<h3>静态服务 (V1.2)</h3>
-<p>URL 路径安全映射到 www/ 目录，15 种 MIME 类型识别，realpath() 目录穿越防护，8KB 固定缓冲区分块发送。</p>
+<h3>配置驱动 (V1.4)</h3>
+<p>启动时读取 <code>server.json</code>，校验 11 项配置字段，构建路由表。
+修改端口/路由/日志无需重新编译，配置错误时拒绝启动并打印原因。</p>
 </div>
 <div class="feature-box">
 <h3>动态查询 (V1.3)</h3>
-<p>GET/POST 双模式学生信息查询，支持仅班级、仅关键词、班级+关键词三种查询方式，跨班级搜索，URL 解码 + HTML 转义。</p>
+<p>GET/POST 双模式学生信息查询，支持仅班级、仅关键词、班级+关键词
+三种查询方式，跨班级搜索，URL 解码 + HTML 转义。</p>
 </div>
 <div class="feature-box">
-<h3>技术栈</h3>
-<p>epoll (LT + EPOLLIN) 单线程事件循环，HTTP/1.1 协议解析，双文件日志系统（system.log + access.log），统一 fd 清理。</p>
+<h3>认证系统 (V1.5)</h3>
+<p>HTTP Basic 认证（401 挑战 + Base64 凭据校验）、Session 会话认证
+（Cookie HttpOnly/SameSite + CSRF 防护）、Bearer Token 认证
+（Token 签发/过期/吊销），三种方案按路由独立配置。</p>
 </div>
 </div>
 
