@@ -388,7 +388,7 @@ int query_records(const char *class_str, const char *keyword,
 }
 
 /*
- * 在所有 data/*.txt 文件中搜索 keyword。
+ * 在所有 data 目录下的 .txt 文件中搜索 keyword。
  * 用于只指定 keyword 不指定 class 的跨班级查询。
  */
 static int query_all_classes(const char *keyword,
