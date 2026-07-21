@@ -1,5 +1,5 @@
 /*
- * W3D4 config.c — JSON config loader + Legacy INI loader (V1.4)
+ * W3D5 config.c — JSON config loader + Legacy INI loader (V1.5)
  *
  * load_json_config():   parse server.json via cJSON, validate, populate config
  * load_legacy_config(): parse INI-style conf (V0.x backward compat)
@@ -77,7 +77,7 @@ int load_legacy_config(const char *path, server_config_t *config) {
 /* ===== Handler registry (must match the names used in server.json) ===== */
 
 /*
- * Handler function signature (V1.4):
+ * Handler function signature (V1.5):
  *   Return: total bytes sent, or -1 on error.
  */
 typedef int (*Handler)(int client_fd, const void *req,
@@ -233,7 +233,7 @@ static int directory_exists(const char *path)
     return S_ISDIR(st.st_mode) ? 1 : 0;
 }
 
-/* ===== Main config loader (V1.4 — cJSON-based) ========================= */
+/* ===== Main config loader (V1.5 — cJSON-based) ========================= */
 
 int load_json_config(const char *path, server_config_t *config)
 {

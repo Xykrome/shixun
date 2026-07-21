@@ -1,5 +1,5 @@
 /*
- * W3D4 static_handler.h — 静态文件处理器头文件 (V1.4)
+ * W3D5 static_handler.h — 静态文件处理器头文件 (V1.5)
  *
  * 功能：
  *   1. URL 路径 → 本地文件路径的安全映射（document root 限定）
@@ -7,7 +7,7 @@
  *   3. send_all() 可靠发送（处理部分发送）
  *   4. serve_static_file() 完整静态文件响应流程
  *
- * V1.4 变更：document_root 可通过 set_document_root() 配置，
+ * V1.5 变更：document_root 可通过 set_document_root() 配置，
  * 不再硬编码为 "www"。默认值为 "www"（保持 V1.2/V1.3 兼容）。
  */
 

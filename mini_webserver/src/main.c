@@ -17,8 +17,8 @@
 
 static void print_usage(const char *prog) {
     printf("Usage:\n");
-    printf("  V1.4 config-driven server:\n");
-    printf("    %s <config.json> [max_requests]  - Start config-driven HTTP server (V1.4, W3D4)\n", prog);
+    printf("  V1.5 config-driven server:\n");
+    printf("    %s <config.json> [max_requests]  - Start config-driven HTTP server (V1.5, W3D5)\n", prog);
     printf("\n");
     printf("  V1.x epoll servers:\n");
     printf("    %s serve-http <max_requests>    - Start epoll HTTP server (V1.3, W3D3)\n", prog);
@@ -177,7 +177,7 @@ cleanup:
      * 命令格式：./mini_web_server serve-http <max_requests>
      *
      * 保留 V1.3 行为：路由硬编码为 /search(GET/POST) + /echo(POST)，
-     * 内部转为 V1.4 的 config + route-table 机制运行。
+     * 内部转为 V1.5 的 config + route-table 机制运行。
      */
     if (argc >= 3 && strcmp(argv[1], "serve-http") == 0) {
         int max_requests = atoi(argv[2]);
@@ -225,7 +225,7 @@ cleanup:
         return 0;
     }
 
-    /* ===== Webserver V1.4 (W3D4): 配置驱动 HTTP 服务器 =====
+    /* ===== Webserver V1.5 (W3D5): 配置驱动 HTTP 服务器 =====
      *
      * 命令格式：./mini_web_server <config.json> [max_requests]
      *
@@ -272,7 +272,7 @@ cleanup:
             fprintf(stderr, "Warning: failed to open log files\n");
         }
 
-        printf("\n=== W3D4 Config-Driven Server V1.4 ===\n");
+        printf("\n=== W3D5 Config-Driven Server V1.5 ===\n");
         printf("Config : %s\n", config_path);
         printf("Host   : %s\n", cfg.host);
         printf("Port   : %d\n", cfg.port);
@@ -282,7 +282,7 @@ cleanup:
         printf("Max req: %d\n\n", max_requests);
 
         if (http_server_run(&cfg, max_requests) < 0) {
-            log_error("failed to start V1.4 config-driven server");
+            log_error("failed to start V1.5 config-driven server");
             log_close();
             return 1;
         }

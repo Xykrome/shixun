@@ -73,7 +73,7 @@ curl -s "http://127.0.0.1:$PORT/search" > /dev/null 2>&1 || true
 curl -s "http://127.0.0.1:$PORT/" > /dev/null 2>&1 || true
 wait $PID 2>/dev/null || true
 
-grep -q "W3D4 HTTP Server V1.4" /tmp/v14_test.log && check_pass "服务器识别为 V1.4" || check_fail "服务器未显示 V1.4 标识"
+grep -q "W3D5 HTTP Server V1.5" /tmp/v14_test.log && check_pass "服务器识别为 V1.5" || check_fail "服务器未显示 V1.5 标识"
 grep -q "server.host.*127.0.0.1" /tmp/v14_test.log && check_pass "配置 host 正确读取" || check_fail "配置 host 读取错误"
 grep -q "server.port.*8080" /tmp/v14_test.log && check_pass "配置 port 正确读取" || check_fail "配置 port 读取错误"
 grep -q "document_root.*www" /tmp/v14_test.log && check_pass "配置 document_root 正确读取" || check_fail "配置 document_root 读取错误"

@@ -1,5 +1,5 @@
 /*
- * W3D4 config.h — JSON-driven server configuration (V1.4)
+ * W3D5 config.h — JSON-driven server configuration (V1.5)
  *
  * Loads server.json via json_parser, validates every field,
  * and exposes a structured config + route table for the HTTP server.
@@ -38,7 +38,7 @@ typedef struct {
     char root[MAX_ROOT_LEN];          /* V0.x uses this */
     char log_path[MAX_LOG_PATH];      /* V0.x uses this */
 
-    /* V1.4 JSON config fields */
+    /* V1.5 JSON config fields */
     char document_root[MAX_ROOT_LEN];
     char log_file[MAX_LOG_PATH];
     char log_level[16];               /* DEBUG | INFO | WARN | ERROR */
@@ -55,13 +55,13 @@ typedef struct {
     int  bearer_enabled;              /* 1 = bearer token auth enabled    */
     int  bearer_timeout_sec;          /* token expiry in seconds          */
 
-    /* routes (V1.4+) */
+    /* routes (V1.5+) */
     route_config_t routes[MAX_ROUTES];
     int            route_count;
 } server_config_t;
 
 /*
- * Load and validate V1.4 JSON configuration from path.
+ * Load and validate V1.5 JSON configuration from path.
  * On success returns 0 and fills *config.
  * On failure prints the reason to stderr and returns -1.
  */

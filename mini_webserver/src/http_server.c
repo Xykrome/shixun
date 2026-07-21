@@ -1,5 +1,5 @@
 /*
- * W3D4 http_server.c — 配置驱动的 HTTP 服务器 V1.4
+ * W3D5 http_server.c — 配置驱动的 HTTP 服务器 V1.5
  *
  * 功能：
  *   epoll 事件循环 + 路由表分发 + 静态文件服务：
@@ -12,7 +12,7 @@
  *   7. access_log() + log_info() 记录日志
  *   8. epoll_ctl(DEL) + close() 清理连接
  *
- * V1.4 变更：
+ * V1.5 变更：
  *   - host/port/document_root 来自配置文件
  *   - 路由分发由配置驱动，不再硬编码 if/else
  *   - handler 通过注册表查找，未注册名称在启动时拒绝
@@ -47,7 +47,7 @@ typedef struct {
     Handler fn;
 } route_entry_t;
 
-/* ===== Handler wrapper functions (V1.4 unified signature) ============== */
+/* ===== Handler wrapper functions (V1.5 unified signature) ============== */
 
 /*
  * GET /search handler.
@@ -1209,7 +1209,7 @@ int http_server_run(const server_config_t *config, int max_requests)
         clients[i].fd = -1;
     }
 
-    printf("=== W3D4 HTTP Server V1.4 (config-driven) ===\n");
+    printf("=== W3D5 HTTP Server V1.5 (config-driven) ===\n");
     printf("[SERVER] Host: %s, Port: %d\n", config->host, config->port);
     printf("[SERVER] Document root: %s\n", config->document_root);
     printf("[SERVER] Log level: %s, Log file: %s\n",
@@ -1221,7 +1221,7 @@ int http_server_run(const server_config_t *config, int max_requests)
     }
     printf("[SERVER] Max requests: %d\n", max_requests);
 
-    log_info("HTTP Server V1.4 (config-driven) starting...");
+    log_info("HTTP Server V1.5 (config-driven) starting...");
 
     /* ---- socket() ---- */
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -1304,7 +1304,7 @@ int http_server_run(const server_config_t *config, int max_requests)
         }
     }
 
-    printf("\n[SERVER] HTTP Server V1.4 is running on http://%s:%d/\n",
+    printf("\n[SERVER] HTTP Server V1.5 is running on http://%s:%d/\n",
            config->host, config->port);
     printf("[SERVER] Process up to %d requests, then exit normally.\n\n",
            max_requests);
@@ -1437,7 +1437,7 @@ int http_server_run(const server_config_t *config, int max_requests)
                             log_warning("HTTP parse failed, 400 returned");
 
                         } else {
-                            /* ---- V1.4 Route Dispatch ---- */
+                            /* ---- V1.5 Route Dispatch ---- */
                             extract_path_no_query(req.path, route_path,
                                                   sizeof(route_path));
 

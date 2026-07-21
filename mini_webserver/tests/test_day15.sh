@@ -282,14 +282,14 @@ cat > /tmp/v15_empty_auth.json << 'EOFJSON'
 {"server":{"host":"127.0.0.1","port":9100,"document_root":"./www"},"logging":{"level":"INFO","file":"./logs/server.log"},"routes":[{"method":"GET","path":"/test","handler":"search_get"}]}
 EOFJSON
 timeout 2 "$SERVER" /tmp/v15_empty_auth.json 1 > /tmp/v15_empty_auth.log 2>&1 || true
-grep -q "W3D4 HTTP Server" /tmp/v15_empty_auth.log && check_pass "无 auth 字段 → 合法（公开路由）" || check_fail "无 auth 字段被拒绝"
+grep -q "W3D5 HTTP Server" /tmp/v15_empty_auth.log && check_pass "无 auth 字段 → 合法（公开路由）" || check_fail "无 auth 字段被拒绝"
 
 # 明确 auth="basic" 应该被接受（但需要 credentials）
 cat > /tmp/v15_auth_basic_nocred.json << 'EOFJSON'
 {"server":{"host":"127.0.0.1","port":9101,"document_root":"./www"},"logging":{"level":"INFO","file":"./logs/server.log"},"routes":[{"method":"GET","path":"/test","handler":"search_get","auth":"basic"}]}
 EOFJSON
 timeout 2 "$SERVER" /tmp/v15_auth_basic_nocred.json 1 > /tmp/v15_auth_basic_nocred.log 2>&1 || true
-grep -q "W3D4 HTTP Server" /tmp/v15_auth_basic_nocred.log && check_pass "auth=basic 被接受（即使无 credentials）" || check_fail "auth=basic 被拒绝"
+grep -q "W3D5 HTTP Server" /tmp/v15_auth_basic_nocred.log && check_pass "auth=basic 被接受（即使无 credentials）" || check_fail "auth=basic 被拒绝"
 
 # ── 20. 多场景连续请求 ──────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 /*
- * W3D4 static_handler.c — 静态文件处理器实现 (V1.4)
+ * W3D5 static_handler.c — 静态文件处理器实现 (V1.5)
  *
  * 功能：
  *   1. URL 路径 → 本地文件的安全映射
@@ -7,7 +7,7 @@
  *   3. send_all() 可靠发送（处理 send() 部分发送）
  *   4. serve_static_file() 完整静态文件响应流程
  *
- * V1.4 变更：document_root 由 set_document_root() 配置，
+ * V1.5 变更：document_root 由 set_document_root() 配置，
  * 默认 "www"，不再使用硬编码宏。
  */
 
@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 
-/* ---- Configurable document root (V1.4) ---- */
+/* ---- Configurable document root (V1.5) ---- */
 static char g_document_root[MAX_PATH_LEN] = "www";
 
 void set_document_root(const char *root)

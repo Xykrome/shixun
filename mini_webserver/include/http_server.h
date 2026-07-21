@@ -1,5 +1,5 @@
 /*
- * W3D4 http_server.h — 配置驱动 HTTP 服务器 V1.4 头文件
+ * W3D5 http_server.h — 配置驱动 HTTP 服务器 V1.5 头文件
  *
  * 功能：
  *   结合 epoll 事件循环 + 静态文件服务 + 动态路由分发：
@@ -8,7 +8,7 @@
  *   - 无匹配路由时回退到静态文件服务
  *   - 保留 V1.3 全部 HTTP 行为
  *
- * V1.4 变更：host/port/document_root/log/routes 全部来自配置文件，
+ * V1.5 变更：host/port/document_root/log/routes 全部来自配置文件，
  * 不再硬编码在代码中。
  */
 
@@ -38,7 +38,7 @@ typedef struct {
 #endif
 
 /*
- * 启动基于 epoll 的配置驱动 HTTP 服务器 (W3D4 V1.4)
+ * 启动基于 epoll 的配置驱动 HTTP 服务器 (W3D5 V1.5)
  *
  * 参数来自 server_config_t：
  *   - host, port        → bind() 地址
